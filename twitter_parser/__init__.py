@@ -33,7 +33,7 @@ class Plugin(ContentParserPlugin):
         # Simple data extraction example
         
         parsed_data = {
-  "id": "2018945688248127679",
+  "pid": "2018945688248127679",
   "url": "https://x.com/earthcurated/status/2018945688248127679?s=46",
   "images": [
     {

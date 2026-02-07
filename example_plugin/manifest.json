@@ -1,9 +1,0 @@
-{
-    "id": "example_plugin",
-    "name": "Example Plugin",
-    "description": "An example plugin for Content Hive.",
-    "version": "1.0.0",
-    "author": "Your Name",
-    "license": "MIT"
-}  
-

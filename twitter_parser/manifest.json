@@ -1,0 +1,9 @@
+{
+    "id": "twitter_parser",
+    "name": "Twitter Parser",
+    "description": "A plugin for parsing Twitter(X) content for Content Hive.",
+    "version": "1.0.0",
+    "author": "Content Hive Team",
+    "license": "MIT"
+}  
+

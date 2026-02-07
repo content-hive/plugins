@@ -4,6 +4,9 @@
     "description": "A plugin for parsing Twitter(X) content for Content Hive.",
     "version": "1.0.0",
     "author": "Content Hive Team",
-    "license": "MIT"
+    "license": "MIT",
+    "dependencies": {
+        "playwright": "==1.58.0"
+    }
 }  
 

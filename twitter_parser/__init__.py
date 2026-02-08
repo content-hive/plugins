@@ -16,21 +16,6 @@ class Plugin(ContentParserPlugin):
         self.browser = None
         self.browser_context = None
         
-        # 自动安装 Chromium 浏览器
-        try:
-            self.context.logger.info("Checking Playwright browser installation...")
-            subprocess.run(
-                [sys.executable, "-m", "playwright", "install", "chromium"],
-                check=True,
-                capture_output=True,
-                text=True
-            )
-            self.context.logger.info("Playwright Chromium browser ready.")
-        except subprocess.CalledProcessError as e:
-            self.context.logger.warning(f"Failed to install Playwright browser: {e}")
-        except Exception as e:
-            self.context.logger.warning(f"Unexpected error during browser installation: {e}")
-        
     def on_enable(self):
         self.context.logger.info("Twitter Parser Plugin enabled.")
 

@@ -3,7 +3,7 @@ import asyncio
 import subprocess
 import sys
 from typing import Optional
-from contenthive.models.content import URLParserResult
+from contenthive.models.parser import ParserResult
 from contenthive.plugins.base import ContentParserPlugin
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 
@@ -109,7 +109,7 @@ class Plugin(ContentParserPlugin):
         """
         return bool(re.match(r'https?://(www\.)?(twitter\.com|x\.com)/.+/status/\d+', url))
     
-    def parse(self, url: str) -> Optional[URLParserResult]:
+    def parse(self, url: str) -> Optional[ParserResult]:
         """
         Parse content from Twitter URL using Playwright.
         """
@@ -120,7 +120,7 @@ class Plugin(ContentParserPlugin):
             parsed_data = self._run_async(self._scrape_tweet(url))
             if parsed_data is None:
                 raise Exception("无法提取推文数据")
-            return URLParserResult(**parsed_data)
+            return ParserResult(**parsed_data)
         except Exception as e:
             self.context.logger.error(f"Failed to parse Twitter URL: {e}")
             return None
@@ -156,8 +156,7 @@ class Plugin(ContentParserPlugin):
                     text: '',
                     author: {},
                     timestamp: '',
-                    images: [],
-                    videos: []
+                    media: []
                 };
                 
                 // 提取文本内容
@@ -185,7 +184,7 @@ class Plugin(ContentParserPlugin):
                     data.author.name = authorName.innerText;
                 }
                 if (authorHandle) {
-                    data.author.userName = authorHandle.href.split('/').pop();
+                    data.author.username = authorHandle.href.split('/').pop();
                     data.author.url = authorHandle.href;
                 }
                 
@@ -221,7 +220,7 @@ class Plugin(ContentParserPlugin):
                         if (!imageUrl.endsWith(':orig')) {
                             imageUrl += ':orig';
                         }
-                        data.images.push({ url: imageUrl });
+                        data.media.push({ url: imageUrl, type: 'image' });
                     }
                 });
                 
@@ -229,7 +228,7 @@ class Plugin(ContentParserPlugin):
                 const videos = article.querySelectorAll('video');
                 videos.forEach(video => {
                     if (video.src || video.poster) {
-                        data.videos.push({ url: video.src || video.poster });
+                        data.media.push({ url: video.src || video.poster, type: 'video' });
                     }
                 });
                 
@@ -257,24 +256,23 @@ class Plugin(ContentParserPlugin):
             return {
                 'pid': tweet_id,
                 'url': url,
-                'images': tweet_data.get('images', []),
-                'videos': tweet_data.get('videos', []),
+                'media': tweet_data.get('media', []),
                 'content': tweet_data.get('text', ''),
                 'author': {
                     'uid': tweet_data.get('author', {}).get('uid', ''),
                     'name': tweet_data.get('author', {}).get('name', ''),
-                    'userName': tweet_data.get('author', {}).get('userName', ''),
+                    'username': tweet_data.get('author', {}).get('username', ''),
                     'avatar': tweet_data.get('author', {}).get('avatar', ''),
                     'url': tweet_data.get('author', {}).get('url', '')
                 },
-                'createdTime': created_time,
+                'created_time': created_time,
                 'parser': 'twitter_parser',
                 'state': 'success',
                 'platform': {
                     'name': 'X',
                     'code': 'x',
                     'url': 'https://x.com/',
-                    'iconUrl': 'https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/d8/88/a7/d888a76a-2b0c-d68a-ab65-83eb09740f43/ProductionAppIcon-0-0-1x_U007emarketing-0-7-0-0-0-85-220.png/512x512bb.jpg'
+                    'icon_url': 'https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/d8/88/a7/d888a76a-2b0c-d68a-ab65-83eb09740f43/ProductionAppIcon-0-0-1x_U007emarketing-0-7-0-0-0-85-220.png/512x512bb.jpg'
                 }
             }
             

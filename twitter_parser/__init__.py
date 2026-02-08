@@ -131,7 +131,7 @@ class Plugin(ContentParserPlugin):
             await page.wait_for_timeout(3000)
             
             # 提取推文数据
-            tweet_data = await page.evaluate('''() => {
+            tweet_data = await page.evaluate(r'''() => {
                 const article = document.querySelector('article[data-testid="tweet"]') || 
                                document.querySelector('article[role="article"]') ||
                                document.querySelector('article');

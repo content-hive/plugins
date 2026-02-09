@@ -1,7 +1,7 @@
 """Parser platform for FXTwitter plugin."""
 
 import re
-from typing import Optional
+from typing import Any, Dict, Optional
 from pydantic import HttpUrl
 import aiohttp
 
@@ -29,6 +29,11 @@ async def async_setup_entry(context: PluginContext, entry, async_add_entities):
     await parser.async_setup()
     await async_add_entities([parser])
 
+    if context.register_service:
+        context.register_service(DOMAIN, "can_parse", parser.can_parse)
+        context.register_service(DOMAIN, "parse", parser.parse)
+
+    context.logger.info(f"{DOMAIN} parser platform setup completed")
 
 class FXTwitterParser:
     """Twitter/X.com content parser using fxtwitter API."""
@@ -49,14 +54,21 @@ class FXTwitterParser:
             await self.async_will_remove()
             raise
     
-    def can_parse(self, url: str) -> bool:
+    def can_parse(self, data: Dict[str, Any]) -> bool:
         """Check if URL can be parsed by this parser."""
+        url = data.get("url")
+        if not url:
+            return False
         return bool(re.match(URL_PATTERN, url))
     
-    async def parse(self, url: str) -> ParserResult:
+    async def parse(self, data: Dict[str, Any]) -> ParserResult:
         """Parse Twitter content using fxtwitter API."""
         if not self._session:
             raise Exception("Parser not initialized - session is None")
+        
+        url = data.get("url")
+        if not url:
+            raise ValueError("No URL provided for parsing")
         
         try:
             api_url = self._convert_to_api_url(url)

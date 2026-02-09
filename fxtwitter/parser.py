@@ -1,7 +1,7 @@
 """Parser platform for FXTwitter plugin."""
 
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from pydantic import HttpUrl
 import aiohttp
 
@@ -54,14 +54,14 @@ class FXTwitterParser:
             await self.async_will_remove()
             raise
     
-    def can_parse(self, data: Dict[str, Any]) -> bool:
+    def can_parse(self, data: dict[str, Any]) -> bool:
         """Check if URL can be parsed by this parser."""
         url = data.get("url")
         if not url:
             return False
         return bool(re.match(URL_PATTERN, url))
     
-    async def parse(self, data: Dict[str, Any]) -> ParserResult:
+    async def parse(self, data: dict[str, Any]) -> ParserResult:
         """Parse Twitter content using fxtwitter API."""
         if not self._session:
             raise Exception("Parser not initialized - session is None")

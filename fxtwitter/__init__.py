@@ -40,7 +40,8 @@ async def async_setup_entry(context: PluginContext, entry):
         True if setup successful, False otherwise
     """
     # Load parser platform using HA-style forward setup
-    await context.async_forward_entry_setup(entry, "parser")
+    if context.async_forward_entry_setup:
+        await context.async_forward_entry_setup(entry, "parser")
     
     context.logger.info(f"{DOMAIN} plugin entry setup completed")
     return True

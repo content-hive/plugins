@@ -31,6 +31,14 @@ class Plugin(ContentParserPlugin):
     def can_parse(self, url: str) -> bool:
         return bool(re.match(r'https?://(www\.)?(twitter\.com|x\.com)/.+/status/\d+', url))
     
+    def platform_info_x(self) -> ParserPlatformInfo:
+        return ParserPlatformInfo(
+            code='x',
+            name='X',
+            url=HttpUrl('https://x.com'),
+            icon_url=HttpUrl('https://raw.githubusercontent.com/content-hive/assets/main/IconSet/X.png')
+        )
+    
     async def parse(self, url: str) -> ParserResult:
         """
         Parse Twitter content using fxtwitter API.
@@ -96,14 +104,6 @@ class Plugin(ContentParserPlugin):
                 url=HttpUrl(tweet['author']['url'])
             )
             
-            # Create platform info
-            platform = ParserPlatformInfo(
-                code='x',
-                name='X',
-                url=HttpUrl('https://x.com'),
-                icon_url=HttpUrl('https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
-            )
-            
             # Convert timestamp from seconds to milliseconds
             created_time = tweet['created_timestamp'] * 1000
             
@@ -114,7 +114,7 @@ class Plugin(ContentParserPlugin):
                 content=tweet['text'],
                 media=media_list,
                 author=author,
-                platform=platform,
+                platform=self.platform_info_x(),
                 created_time=created_time,
                 parser='fxtwitter',
                 state='success'

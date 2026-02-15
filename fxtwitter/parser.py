@@ -119,7 +119,7 @@ class FXTwitterParser:
             media=self._parse_media(tweet),
             author=self._parse_author(tweet),
             platform=self._get_platform_info(),
-            created_time=tweet['created_timestamp'] * 1000,
+            post_time=tweet['created_timestamp'],
             parser='fxtwitter',
             state='success'
         )

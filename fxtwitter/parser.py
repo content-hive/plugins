@@ -11,6 +11,7 @@ from contenthive.models.parser import (
     ParserAuthorInfo,
     ParserPlatformInfo
 )
+from contenthive.models.enumerates import MediaType
 from contenthive.plugins.context import PluginContext
 
 from .const import (
@@ -119,7 +120,7 @@ class FXTwitterParser:
             media=self._parse_media(tweet),
             author=self._parse_author(tweet),
             platform=self._get_platform_info(),
-            created_time=tweet['created_timestamp'] * 1000,
+            post_time=tweet['created_timestamp'],
             parser='fxtwitter',
             state='success'
         )
@@ -138,7 +139,7 @@ class FXTwitterParser:
             for photo in media['photos']:
                 media_list.append(ParserMediaInfo(
                     url=HttpUrl(photo['url']),
-                    type='image',
+                    type=MediaType.IMAGE,
                     title=None,
                     cover=None
                 ))
@@ -148,7 +149,7 @@ class FXTwitterParser:
             for video in media['videos']:
                 media_info = ParserMediaInfo(
                     url=HttpUrl(video['url']),
-                    type='video',
+                    type=MediaType.VIDEO,
                     title=None,
                     cover=HttpUrl(video['thumbnail_url']) if 'thumbnail_url' in video else None
                 )

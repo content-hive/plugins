@@ -12,6 +12,17 @@
       "config_flow": false,
       "path": "fxtwitter",
       "enabled": true
+    },
+    {
+      "domain": "xiaohongshu",
+      "name": "Xiaohongshu Plugin",
+      "version": "0.1.0",
+      "description": "A Xiaohongshu content parsing plugin for Content Hive that uses the Xiaohongshu API.",
+      "author": ["@content-hive"],
+      "requirements": [],
+      "config_flow": false,
+      "path": "xiaohongshu",
+      "enabled": true
     }
   ]
 }

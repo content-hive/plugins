@@ -17,7 +17,7 @@
       "domain": "xiaohongshu",
       "name": "Xiaohongshu Plugin",
       "version": "0.1.0",
-      "description": "A Xiaohongshu content parsing plugin for Content Hive that uses the Xiaohongshu API.",
+      "description": "A Xiaohongshu content parsing plugin for Content Hive that scrapes note pages and extracts embedded page state.",
       "author": ["@content-hive"],
       "requirements": [],
       "config_flow": false,

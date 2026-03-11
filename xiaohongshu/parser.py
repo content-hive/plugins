@@ -1,12 +1,12 @@
 """
 Xiaohongshu (Little Red Book) content parser plugin.
 """
-import random
+import json
+import re
+from typing import Optional
 
 import aiohttp
 from pydantic import HttpUrl
-import re, json
-from typing import Optional
 from contenthive.models.parser import (
     ParserResult,
     ParserMediaInfo,
@@ -48,6 +48,8 @@ class XiaohongshuParser:
     def __init__(self, context: PluginContext, entry):
         self.context = context
         self.entry = entry
+        self.domain = DOMAIN
+        self._session: Optional[aiohttp.ClientSession] = None
 
     async def async_setup(self):
         """Initialize parser."""
@@ -64,7 +66,7 @@ class XiaohongshuParser:
         url = data.get("url")
         if not url:
             return False
-        return any(pattern in url for pattern in URL_PATTERN)
+        return bool(re.match(URL_PATTERN, url))
 
     async def _fetch_state(self, url: str) -> dict:
         """Fetch a Xiaohongshu page and extract window.__INITIAL_STATE__ as a dict.
@@ -83,12 +85,17 @@ class XiaohongshuParser:
         try:
             async with self._session.get(url, headers=REQUEST_HEADERS) as resp:
                 html = await resp.text()
-            match = re.findall(r"window.__INITIAL_STATE__=({.*?})</script>", html)
+                if resp.status != 200:
+                    preview = html[:500].replace("\n", " ") if html else ""
+                    raise Exception(
+                        f"HTTP {resp.status} fetching {url!r}; body preview: {preview!r}"
+                    )
+            match = re.search(r"window\.__INITIAL_STATE__=({.*?})</script>", html, re.DOTALL)
             if not match:
                 raise Exception("No window.__INITIAL_STATE__ JSON found")
             # Replace JS-only tokens with JSON null using word boundaries
             # to avoid corrupting occurrences inside string values.
-            state_json = re.compile(JS_INVALID_TOKENS).sub("null", match[0])
+            state_json = re.compile(JS_INVALID_TOKENS).sub("null", match.group(1))
             return json.loads(state_json)
         except Exception as e:
             self.context.logger.error(f"Failed to fetch or parse {url}: {e}")

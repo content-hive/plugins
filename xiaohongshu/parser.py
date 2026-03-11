@@ -4,6 +4,7 @@ Xiaohongshu (Little Red Book) content parser plugin.
 import json
 import re
 from typing import Optional
+from urllib.parse import urlparse
 
 import aiohttp
 from pydantic import HttpUrl
@@ -129,10 +130,11 @@ class XiaohongshuParser:
         Returns:
             traceId string if found, else None.
         """
-        trace_id = url.split("/")[-1].split("!")[0]
-        if "spectrum" in url:
+        path = urlparse(url).path
+        trace_id = path.split("/")[-1].split("!")[0]
+        if "spectrum" in path:
             return "spectrum/" + trace_id
-        if "notes_pre_post" in url:
+        if "notes_pre_post" in path:
             return "notes_pre_post/" + trace_id
         return trace_id
 
@@ -275,35 +277,39 @@ class XiaohongshuParser:
         if not url:
             raise ValueError("No URL provided for parsing")
 
-        state = await self._fetch_state(url)
+        try:
+            state = await self._fetch_state(url)
 
-        # Extract note ID
-        note_id = state.get("note", {}).get("currentNoteId")
-        note_map = state.get("note", {}).get("noteDetailMap", {})
-        note_detail = note_map.get(note_id) if note_id and note_map else None
-        note = note_detail.get("note") if note_detail else None
-        if not note:
-            raise Exception("No note data found in JSON")
+            # Extract note ID
+            note_id = state.get("note", {}).get("currentNoteId")
+            note_map = state.get("note", {}).get("noteDetailMap", {})
+            note_detail = note_map.get(note_id) if note_id and note_map else None
+            note = note_detail.get("note") if note_detail else None
+            if not note:
+                raise Exception("No note data found in JSON")
 
-        # Title and content
-        title = note.get("title")
-        content = note.get("desc")
+            # Title and content
+            title = note.get("title")
+            content = note.get("desc")
 
-        # Publish time
-        post_time = note.get("lastUpdateTime") / 1000 if note.get("lastUpdateTime") else None
+            # Publish time
+            post_time = note.get("lastUpdateTime") / 1000 if note.get("lastUpdateTime") else None
 
-        return ParserResult(
-            pid=note_id,
-            url=HttpUrl(url),
-            title=title,
-            content=content,
-            media=self._parse_media(note),
-            author=await self._parse_author(note),
-            platform=self._parse_platform(),
-            post_time=post_time,
-            parser=DOMAIN,
-            state=ParserResultStatus.SUCCESS
-        )
+            return ParserResult(
+                pid=note_id,
+                url=HttpUrl(url),
+                title=title,
+                content=content,
+                media=self._parse_media(note),
+                author=await self._parse_author(note),
+                platform=self._parse_platform(),
+                post_time=post_time,
+                parser=DOMAIN,
+                state=ParserResultStatus.SUCCESS
+            )
+        except Exception as e:
+            self.context.logger.error(f"Failed to parse {url}: {e}")
+            raise Exception(f"Failed to parse Xiaohongshu URL: {e}")
 
     async def async_will_remove(self):
         """Clean up resources when removing parser."""

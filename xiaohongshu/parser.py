@@ -1,6 +1,8 @@
 """
-
+Xiaohongshu (Little Red Book) content parser plugin.
 """
+import random
+
 import aiohttp
 from pydantic import HttpUrl
 import re, json
@@ -15,14 +17,18 @@ from contenthive.models.enumerates import MediaType, ParserResultStatus
 from contenthive.plugins.context import PluginContext
 from .const import (
     DOMAIN,
+    IMAGE_CDN_URL,
     PLATFORM_CODE,
     PLATFORM_NAME,
     PLATFORM_URL,
     PLATFORM_ICON,
     STREAM_CODEC_PRIORITY,
     REQUEST_HEADERS,
-    JS_INVALID_TOKENS
+    JS_INVALID_TOKENS,
+    VIDEO_CDN_URL,
+    URL_PATTERN
 )
+
 
 async def async_setup_entry(context: PluginContext, entry, async_add_entities):
     """Set up parser entities from a config entry."""
@@ -58,7 +64,7 @@ class XiaohongshuParser:
         url = data.get("url")
         if not url:
             return False
-        return "xhslink.com" in url
+        return any(pattern in url for pattern in URL_PATTERN)
 
     async def _fetch_state(self, url: str) -> dict:
         """Fetch a Xiaohongshu page and extract window.__INITIAL_STATE__ as a dict.
@@ -82,7 +88,7 @@ class XiaohongshuParser:
                 raise Exception("No window.__INITIAL_STATE__ JSON found")
             # Replace JS-only tokens with JSON null using word boundaries
             # to avoid corrupting occurrences inside string values.
-            state_json = JS_INVALID_TOKENS.sub("null", match[0])
+            state_json = re.compile(JS_INVALID_TOKENS).sub("null", match[0])
             return json.loads(state_json)
         except Exception as e:
             self.context.logger.error(f"Failed to fetch or parse {url}: {e}")
@@ -103,9 +109,37 @@ class XiaohongshuParser:
         for codec in STREAM_CODEC_PRIORITY:
             entries = stream.get(codec) or []
             if entries and entries[0].get("masterUrl"):
-                return entries[0]["masterUrl"]
+                url = entries[0]["masterUrl"]
+                url = re.sub(r"^https?://[^/]+", VIDEO_CDN_URL, url)
+                return url
         return None
 
+    def _extract_trace_id(self, url: str) -> Optional[str]:
+        """Extract traceId from a Xiaohongshu URL.
+
+        Args:
+            url: The URL string to extract from.
+        Returns:
+            traceId string if found, else None.
+        """
+        trace_id = url.split("/")[-1].split("!")[0]
+        if "spectrum" in url:
+            return "spectrum/" + trace_id
+        if "notes_pre_post" in url:
+            return "notes_pre_post/" + trace_id
+        return trace_id
+
+    def _get_img_url_by_trace_id(self, trace_id: str) -> Optional[str]:
+        """Construct image URL from traceId.
+
+        Args:
+            trace_id: The traceId extracted from the URL.
+
+        Returns:
+            Constructed image URL string.
+        """
+        return f"{IMAGE_CDN_URL}/{trace_id}?imageView2/format/webp"
+    
     def _parse_media(self, note: dict) -> list[ParserMediaInfo]:
         """Parse media list from note data.
 
@@ -120,7 +154,10 @@ class XiaohongshuParser:
 
         if note_type == "video":
             # Video note: imageList[0] is cover, video is in note.video.media.stream
-            cover_url = (note.get("imageList") or [{}])[0].get("urlDefault")
+            cover = (note.get("imageList") or [{}])[0].get("urlDefault")
+            cover_trace_id = self._extract_trace_id(cover) if cover else None
+            cover_url = self._get_img_url_by_trace_id(cover_trace_id) if cover_trace_id else None
+
             stream = (
                 note.get("video", {})
                     .get("media", {})
@@ -137,7 +174,8 @@ class XiaohongshuParser:
         else:
             # Image note: iterate imageList, distinguish normal image and live photo
             for img in note.get("imageList", []):
-                img_url = img.get("urlDefault") or img.get("url")
+                img_trace_id = self._extract_trace_id(img.get("urlDefault")) if img.get("urlDefault") else None
+                img_url = self._get_img_url_by_trace_id(img_trace_id) if img_trace_id else None
                 if not img_url:
                     continue
                 if img.get("livePhoto", False):
@@ -180,7 +218,7 @@ class XiaohongshuParser:
             return ParserAuthorInfo(
                 uid="",
                 name=user.get("nickname", ""),
-                username=user.get("nickname", ""),
+                username=user_id,
                 avatar=HttpUrl(user.get("avatar")) if user.get("avatar") else None,
                 url=None
             )
@@ -202,7 +240,7 @@ class XiaohongshuParser:
         return ParserAuthorInfo(
             uid=user_id,
             name=user.get("nickname", ""),
-            username=red_id or user.get("nickname", ""),
+            username=red_id or user_id,
             avatar=HttpUrl(user.get("avatar")) if user.get("avatar") else None,
             url=HttpUrl(profile_url)
         )
@@ -220,7 +258,7 @@ class XiaohongshuParser:
             icon_url=HttpUrl(PLATFORM_ICON)
         )
 
-    async def parse(self, data: dict):
+    async def parse(self, data: dict) -> ParserResult:
         """Parse Xiaohongshu note page and return ParserResult."""
 
         if not self._session:

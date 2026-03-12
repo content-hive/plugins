@@ -62,7 +62,10 @@ async def async_unload_entry(context: PluginContext, entry):
         True if unload successful, False otherwise
     """
     # Unload parser platform using HA-style unload
-    success = await context.async_unload_platforms(entry, ["parser"])
+    if context.async_unload_platforms:
+        success = await context.async_unload_platforms(entry, ["parser"])
+    else:
+        success = True
     
     if success:
         context.logger.info(f"{DOMAIN} plugin entry unloaded")

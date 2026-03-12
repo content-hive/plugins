@@ -11,7 +11,7 @@ from contenthive.models.parser import (
     ParserAuthorInfo,
     ParserPlatformInfo
 )
-from contenthive.models.enumerates import MediaType
+from contenthive.models.enumerates import MediaType, ParserResultStatus
 from contenthive.plugins.context import PluginContext
 
 from .const import (
@@ -116,13 +116,14 @@ class FXTwitterParser:
         return ParserResult(
             pid=tweet['id'],
             url=HttpUrl(tweet['url']),
+            title=None,
             content=tweet['text'],
             media=self._parse_media(tweet),
             author=self._parse_author(tweet),
             platform=self._get_platform_info(),
             post_time=tweet['created_timestamp'],
-            parser='fxtwitter',
-            state='success'
+            parser=DOMAIN,
+            state=ParserResultStatus.SUCCESS
         )
     
     def _parse_media(self, tweet: dict) -> list[ParserMediaInfo]:

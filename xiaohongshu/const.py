@@ -12,7 +12,7 @@ PLATFORM_ICON = "https://raw.githubusercontent.com/content-hive/assets/main/Icon
 # (xiaohongshu.com/explore/<noteId>).  Uses re.match() so the host must appear
 # at the very start of the string, preventing false positives from query-string
 # values that happen to contain these hostnames.
-URL_PATTERN = r'https?://(?:www\.)?xhslink\.com/\S+|https?://(?:www\.)?xiaohongshu\.com/explore/\w+'
+URL_PATTERN = r'https?://(?:www\.)?xhslink\.com/o/\S+|https?://(?:www\.)?xiaohongshu\.com/explore/\w+'
 
 # Parser constants
 STREAM_CODEC_PRIORITY = ("h264", "h265", "h266", "av1")

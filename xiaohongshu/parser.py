@@ -130,10 +130,13 @@ class XiaohongshuParser:
         Returns:
             traceId string if found, else None.
         """
+        # Path structure:
+        #   no prefix:   /<date>/<hash>/<trace_id>!...      → 4 parts
+        #   with prefix: /<date>/<hash>/<prefix>/<trace_id>!... → 5 parts
         path = urlparse(url).path
         parts = path.split("/")
         trace_id = parts[-1].split("!")[0]
-        if len(parts) >= 2 and parts[-2]:
+        if len(parts) == 5:
             return f"{parts[-2]}/{trace_id}"
         return trace_id
 

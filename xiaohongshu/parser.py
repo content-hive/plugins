@@ -234,7 +234,7 @@ class XiaohongshuParser:
                 url=None
             )
         
-        profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}"
+        profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}?xsec_source=pc_note"
         
         red_id = ""
         try:

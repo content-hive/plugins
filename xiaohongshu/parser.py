@@ -131,13 +131,10 @@ class XiaohongshuParser:
             traceId string if found, else None.
         """
         path = urlparse(url).path
-        trace_id = path.split("/")[-1].split("!")[0]
-        if "spectrum" in path:
-            return "spectrum/" + trace_id
-        if "notes_pre_post" in path:
-            return "notes_pre_post/" + trace_id
-        if "notes_uhdr" in path:
-            return "notes_uhdr/" + trace_id
+        parts = path.split("/")
+        trace_id = parts[-1].split("!")[0]
+        if len(parts) >= 2 and parts[-2]:
+            return f"{parts[-2]}/{trace_id}"
         return trace_id
 
     def _get_img_url_by_trace_id(self, trace_id: str) -> Optional[str]:

@@ -8,7 +8,7 @@ PLATFORM_NAME = "Xiaohongshu"
 PLATFORM_URL = "https://www.xiaohongshu.com/"
 PLATFORM_ICON = "https://raw.githubusercontent.com/content-hive/assets/main/IconSet/小红书.png"
 
-# URL pattern — matches short-links (xhslink.com/<path>) and direct note URLs
+# URL pattern — matches short-links (xhslink.com/o/<path>) and direct note URLs
 # (xiaohongshu.com/explore/<noteId>).  Uses re.match() so the host must appear
 # at the very start of the string, preventing false positives from query-string
 # values that happen to contain these hostnames.

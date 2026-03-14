@@ -4,7 +4,7 @@ Xiaohongshu (Little Red Book) content parser plugin.
 import json
 import re
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlencode
 
 import aiohttp
 from pydantic import HttpUrl
@@ -232,7 +232,8 @@ class XiaohongshuParser:
                 url=None
             )
         
-        profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}?xsec_source=pc_note&xsec_token={xsec_token}"
+        query = urlencode({"xsec_source": "pc_note", "xsec_token": xsec_token})
+        profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}?{query}"
         
         red_id = ""
         try:

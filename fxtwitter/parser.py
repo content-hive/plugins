@@ -78,7 +78,7 @@ class FXTwitterParser:
             data = await self._fetch_api_data(api_url)
             tweet = self._validate_response(data)
             
-            return self._build_result(tweet)
+            return self._build_result(url, tweet)
             
         except Exception as e:
             self.context.logger.error(f"Failed to parse {url}: {e}")
@@ -111,11 +111,11 @@ class FXTwitterParser:
         
         return data['tweet']
     
-    def _build_result(self, tweet: dict) -> ParserResult:
+    def _build_result(self, url: str, tweet: dict) -> ParserResult:
         """Build ParserResult from tweet data."""
         return ParserResult(
             pid=tweet['id'],
-            url=HttpUrl(tweet['url']),
+            url=HttpUrl(url),
             title=None,
             content=tweet['text'],
             media=self._parse_media(tweet),

@@ -4,7 +4,7 @@ Xiaohongshu (Little Red Book) content parser plugin.
 import json
 import re
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlencode
 
 import aiohttp
 from pydantic import HttpUrl
@@ -123,21 +123,18 @@ class XiaohongshuParser:
         return None
 
     def _extract_trace_id(self, url: str) -> Optional[str]:
-        """Extract traceId from a Xiaohongshu URL.
+        """Extract traceId from a Xiaohongshu image/video URL.
 
         Args:
-            url: The URL string to extract from.
+            url: The CDN URL string to extract traceId from.
         Returns:
             traceId string if found, else None.
         """
-        # Path structure:
-        #   no prefix:   /<date>/<hash>/<trace_id>!...      → 4 parts
-        #   with prefix: /<date>/<hash>/<prefix>/<trace_id>!... → 5 parts
+        self.context.logger.debug(f"Extracting traceId from URL: {url}")
         path = urlparse(url).path
         parts = path.split("/")
-        trace_id = parts[-1].split("!")[0]
-        if len(parts) == 5:
-            return f"{parts[-2]}/{trace_id}"
+        trace_id = "/".join(parts[3:]).split("!")[0]
+        self.context.logger.debug(f"Extracted traceId: {trace_id}")
         return trace_id
 
     def _get_img_url_by_trace_id(self, trace_id: str) -> Optional[str]:
@@ -149,7 +146,7 @@ class XiaohongshuParser:
         Returns:
             Constructed image URL string.
         """
-        return f"{IMAGE_CDN_URL}/{trace_id}?imageView2/format/webp"
+        return f"{IMAGE_CDN_URL}/{trace_id}"
     
     def _parse_media(self, note: dict) -> list[ParserMediaInfo]:
         """Parse media list from note data.
@@ -224,6 +221,7 @@ class XiaohongshuParser:
         """
         user = note.get("user", {})
         user_id = user.get("userId", "")
+        xsec_token = user.get("xsecToken", "")
         if not user_id:
             self.context.logger.warning("No userId found in note data")
             return ParserAuthorInfo(
@@ -234,7 +232,8 @@ class XiaohongshuParser:
                 url=None
             )
         
-        profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}"
+        query = urlencode({"xsec_source": "pc_note", "xsec_token": xsec_token})
+        profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}?{query}"
         
         red_id = ""
         try:

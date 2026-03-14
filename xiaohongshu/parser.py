@@ -4,6 +4,7 @@ Xiaohongshu (Little Red Book) content parser plugin.
 import json
 import re
 from typing import Optional
+from urllib.parse import urlparse
 
 import aiohttp
 from pydantic import HttpUrl
@@ -122,19 +123,18 @@ class XiaohongshuParser:
         return None
 
     def _extract_trace_id(self, url: str) -> Optional[str]:
-        """Extract traceId from a Xiaohongshu URL.
+        """Extract traceId from a Xiaohongshu image/video URL.
 
         Args:
-            url: The URL string to extract from.
+            url: The CDN URL string to extract traceId from.
         Returns:
             traceId string if found, else None.
         """
-        # Path structure:
-        #   no prefix:   /<date>/<hash>/<trace_id>!...      → 4 parts
-        #   with prefix: /<date>/<hash>/<prefix>/<trace_id>!... → 5 parts
         self.context.logger.debug(f"Extracting traceId from URL: {url}")
-        trace_id = "/".join(url.split("/")[5:]).split("!")[0]
-        self.context.logger.debug(f"URL has no prefix, using last part as traceId: {trace_id}")
+        path = urlparse(url).path
+        parts = path.split("/")
+        trace_id = "/".join(parts[3:]).split("!")[0]
+        self.context.logger.debug(f"Extracted traceId: {trace_id}")
         return trace_id
 
     def _get_img_url_by_trace_id(self, trace_id: str) -> Optional[str]:

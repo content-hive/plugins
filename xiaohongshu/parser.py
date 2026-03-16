@@ -233,11 +233,12 @@ class XiaohongshuParser:
             )
         
         query = urlencode({"xsec_source": "pc_note", "xsec_token": xsec_token})
-        profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}?{query}"
-        
+        profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}"
+        red_id_fetch_url = f"{profile_url}?{query}"
+
         red_id = ""
         try:
-            profile_state = await self._fetch_state(profile_url)
+            profile_state = await self._fetch_state(red_id_fetch_url)
             red_id = (
                 profile_state.get("user", {})
                             .get("userPageData", {})

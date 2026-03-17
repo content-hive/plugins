@@ -148,6 +148,13 @@ class FXTwitterParser:
                     title=None,
                     cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None
                 ))
+            elif item_type == 'gif':
+                media_list.append(ParserMediaInfo(
+                    url=HttpUrl(item['url']),
+                    type=MediaType.GIF,
+                    title=None,
+                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None
+                ))
 
         return media_list
     

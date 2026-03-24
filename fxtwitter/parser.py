@@ -49,9 +49,9 @@ class FXTwitterParser:
         """Initialize parser."""
         try:
             self._session = aiohttp.ClientSession(trust_env=True)
-            self.context.logger.info(f"{DOMAIN} parser initialized")
+            self.context.logger.debug(f"{DOMAIN} parser initialized")
         except Exception as e:
-            self.context.logger.error(f"Failed to initialize parser: {e}")
+            self.context.logger.exception(f"Failed to initialize parser")
             await self.async_will_remove()
             raise
     
@@ -73,7 +73,7 @@ class FXTwitterParser:
         
         try:
             api_url = self._convert_to_api_url(url)
-            self.context.logger.info(f"Fetching content from: {api_url}")
+            self.context.logger.debug(f"Fetching content from: {api_url}")
             
             data = await self._fetch_api_data(api_url)
             tweet = self._validate_response(data)
@@ -81,7 +81,7 @@ class FXTwitterParser:
             return self._build_result(url, tweet)
             
         except Exception as e:
-            self.context.logger.error(f"Failed to parse {url}: {e}")
+            self.context.logger.exception(f"Failed to parse {url}")
             raise Exception(f"Failed to parse Twitter URL: {e}")
     
     def _convert_to_api_url(self, url: str) -> str:

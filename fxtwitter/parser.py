@@ -11,7 +11,7 @@ from contenthive.models.parser import (
     ParserAuthorInfo,
     ParserPlatformInfo
 )
-from contenthive.models.enumerates import MediaType
+from contenthive.models.enumerates import MediaType, ParserResultStatus
 from contenthive.plugins.context import PluginContext
 
 from .const import (
@@ -49,9 +49,9 @@ class FXTwitterParser:
         """Initialize parser."""
         try:
             self._session = aiohttp.ClientSession(trust_env=True)
-            self.context.logger.info(f"{DOMAIN} parser initialized")
+            self.context.logger.debug(f"{DOMAIN} parser initialized")
         except Exception as e:
-            self.context.logger.error(f"Failed to initialize parser: {e}")
+            self.context.logger.exception(f"Failed to initialize parser")
             await self.async_will_remove()
             raise
     
@@ -73,15 +73,15 @@ class FXTwitterParser:
         
         try:
             api_url = self._convert_to_api_url(url)
-            self.context.logger.info(f"Fetching content from: {api_url}")
+            self.context.logger.debug(f"Fetching content from: {api_url}")
             
             data = await self._fetch_api_data(api_url)
             tweet = self._validate_response(data)
             
-            return self._build_result(tweet)
+            return self._build_result(url, tweet)
             
         except Exception as e:
-            self.context.logger.error(f"Failed to parse {url}: {e}")
+            self.context.logger.exception(f"Failed to parse {url}")
             raise Exception(f"Failed to parse Twitter URL: {e}")
     
     def _convert_to_api_url(self, url: str) -> str:
@@ -111,50 +111,51 @@ class FXTwitterParser:
         
         return data['tweet']
     
-    def _build_result(self, tweet: dict) -> ParserResult:
+    def _build_result(self, url: str, tweet: dict) -> ParserResult:
         """Build ParserResult from tweet data."""
         return ParserResult(
             pid=tweet['id'],
-            url=HttpUrl(tweet['url']),
+            url=HttpUrl(url),
+            title=None,
             content=tweet['text'],
             media=self._parse_media(tweet),
             author=self._parse_author(tweet),
             platform=self._get_platform_info(),
             post_time=tweet['created_timestamp'],
-            parser='fxtwitter',
-            state='success'
+            parser=DOMAIN,
+            state=ParserResultStatus.SUCCESS
         )
     
     def _parse_media(self, tweet: dict) -> list[ParserMediaInfo]:
         """Parse media from tweet data."""
         media_list = []
-        
-        if 'media' not in tweet:
-            return media_list
-        
-        media = tweet['media']
-        
-        # Parse photos
-        if 'photos' in media:
-            for photo in media['photos']:
+
+        media_all = tweet.get('media', {}).get('all', [])
+
+        for item in media_all:
+            item_type = item.get('type')
+            if item_type == 'photo':
                 media_list.append(ParserMediaInfo(
-                    url=HttpUrl(photo['url']),
+                    url=HttpUrl(item['url']),
                     type=MediaType.IMAGE,
                     title=None,
                     cover=None
                 ))
-        
-        # Parse videos
-        if 'videos' in media:
-            for video in media['videos']:
-                media_info = ParserMediaInfo(
-                    url=HttpUrl(video['url']),
+            elif item_type == 'video':
+                media_list.append(ParserMediaInfo(
+                    url=HttpUrl(item['url']),
                     type=MediaType.VIDEO,
                     title=None,
-                    cover=HttpUrl(video['thumbnail_url']) if 'thumbnail_url' in video else None
-                )
-                media_list.append(media_info)
-        
+                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None
+                ))
+            elif item_type == 'gif':
+                media_list.append(ParserMediaInfo(
+                    url=HttpUrl(item['url']),
+                    type=MediaType.GIF,
+                    title=None,
+                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None
+                ))
+
         return media_list
     
     def _parse_author(self, tweet: dict) -> ParserAuthorInfo:

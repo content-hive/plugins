@@ -56,9 +56,9 @@ class XiaohongshuParser:
         """Initialize parser."""
         try:
             self._session = aiohttp.ClientSession(trust_env=True)
-            self.context.logger.info(f"{DOMAIN} parser initialized")
+            self.context.logger.debug(f"{DOMAIN} parser initialized")
         except Exception as e:
-            self.context.logger.error(f"Failed to initialize parser: {e}")
+            self.context.logger.exception(f"Failed to initialize parser")
             await self.async_will_remove()
             raise
 
@@ -99,7 +99,7 @@ class XiaohongshuParser:
             state_json = re.compile(JS_INVALID_TOKENS).sub("null", match.group(1))
             return json.loads(state_json)
         except Exception as e:
-            self.context.logger.error(f"Failed to fetch or parse {url}: {e}")
+            self.context.logger.exception(f"Failed to fetch or parse {url}")
             raise Exception(f"Failed to fetch or parse page: {e}")
 
     def _extract_master_url(self, stream: dict) -> Optional[str]:
@@ -130,11 +130,9 @@ class XiaohongshuParser:
         Returns:
             traceId string if found, else None.
         """
-        self.context.logger.debug(f"Extracting traceId from URL: {url}")
         path = urlparse(url).path
         parts = path.split("/")
         trace_id = "/".join(parts[3:]).split("!")[0]
-        self.context.logger.debug(f"Extracted traceId: {trace_id}")
         return trace_id
 
     def _get_img_url_by_trace_id(self, trace_id: str) -> Optional[str]:
@@ -233,11 +231,12 @@ class XiaohongshuParser:
             )
         
         query = urlencode({"xsec_source": "pc_note", "xsec_token": xsec_token})
-        profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}?{query}"
-        
+        profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}"
+        red_id_fetch_url = f"{profile_url}?{query}"
+
         red_id = ""
         try:
-            profile_state = await self._fetch_state(profile_url)
+            profile_state = await self._fetch_state(red_id_fetch_url)
             red_id = (
                 profile_state.get("user", {})
                             .get("userPageData", {})
@@ -309,7 +308,7 @@ class XiaohongshuParser:
                 state=ParserResultStatus.SUCCESS
             )
         except Exception as e:
-            self.context.logger.error(f"Failed to parse {url}: {e}")
+            self.context.logger.exception(f"Failed to parse {url}")
             raise Exception(f"Failed to parse Xiaohongshu URL: {e}")
 
     async def async_will_remove(self):

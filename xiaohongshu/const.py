@@ -4,7 +4,7 @@ DOMAIN = "xiaohongshu"
 
 # Platform info
 PLATFORM_CODE = "xhs"
-PLATFORM_NAME = "Xiaohongshu"
+PLATFORM_NAME = "小红书"
 PLATFORM_URL = "https://www.xiaohongshu.com/"
 PLATFORM_ICON = "https://raw.githubusercontent.com/content-hive/assets/main/IconSet/小红书.png"
 

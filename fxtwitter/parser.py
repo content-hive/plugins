@@ -129,33 +129,33 @@ class FXTwitterParser:
     def _parse_media(self, tweet: dict) -> list[ParserMediaInfo]:
         """Parse media from tweet data."""
         media_list = []
-        
-        if 'media' not in tweet:
-            return media_list
-        
-        media = tweet['media']
-        
-        # Parse photos
-        if 'photos' in media:
-            for photo in media['photos']:
+
+        media_all = tweet.get('media', {}).get('all', [])
+
+        for item in media_all:
+            item_type = item.get('type')
+            if item_type == 'photo':
                 media_list.append(ParserMediaInfo(
-                    url=HttpUrl(photo['url']),
+                    url=HttpUrl(item['url']),
                     type=MediaType.IMAGE,
                     title=None,
                     cover=None
                 ))
-        
-        # Parse videos
-        if 'videos' in media:
-            for video in media['videos']:
-                media_info = ParserMediaInfo(
-                    url=HttpUrl(video['url']),
+            elif item_type == 'video':
+                media_list.append(ParserMediaInfo(
+                    url=HttpUrl(item['url']),
                     type=MediaType.VIDEO,
                     title=None,
-                    cover=HttpUrl(video['thumbnail_url']) if 'thumbnail_url' in video else None
-                )
-                media_list.append(media_info)
-        
+                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None
+                ))
+            elif item_type == 'gif':
+                media_list.append(ParserMediaInfo(
+                    url=HttpUrl(item['url']),
+                    type=MediaType.GIF,
+                    title=None,
+                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None
+                ))
+
         return media_list
     
     def _parse_author(self, tweet: dict) -> ParserAuthorInfo:

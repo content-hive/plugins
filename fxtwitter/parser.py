@@ -167,7 +167,9 @@ class FXTwitterParser:
             name=author_data['name'],
             username=author_data['screen_name'],
             avatar=HttpUrl(author_data['avatar_url']),
-            url=HttpUrl(author_data['url'])
+            url=HttpUrl(author_data['url']),
+            banner=HttpUrl(author_data['banner_url']) if 'banner_url' in author_data else None,
+            description=author_data.get('description')
         )
     
     def _get_platform_info(self) -> ParserPlatformInfo:

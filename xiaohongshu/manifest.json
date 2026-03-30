@@ -1,7 +1,7 @@
 {
     "domain": "xiaohongshu",
     "name": "Xiaohongshu Plugin",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "description": "A Xiaohongshu (Little Red Book) content parsing plugin for Content Hive.",
     "author": ["@content-hive"],
     "requirements": [],

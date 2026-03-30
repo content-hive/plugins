@@ -206,15 +206,16 @@ class XiaohongshuParser:
         return media_list
 
     async def _parse_author(self, note: dict, xsec_token: str = "") -> ParserAuthorInfo:
-        """Parse author information from note data.
+        """Parse author information from a note dict.
 
-        Fetches the user profile page to retrieve redId, which is not
+        Fetches the user profile page to retrieve `redId`, which is not
         available in the note page state.
 
         Args:
-            note: Note data dict from noteDetailMap.
-            xsec_token: xsec_token from noteData.routeQuery, used to construct
-                the profile fetch URL.
+            note: Note data dict extracted from the page state
+                (typically `noteData.data.noteData`).
+            xsec_token: `xsec_token` from `noteData.routeQuery`, used to
+                construct the profile fetch URL.
 
         Returns:
             ParserAuthorInfo object.
@@ -284,10 +285,10 @@ class XiaohongshuParser:
             # Extract note data
             note_data = state.get("noteData", {})
             note = note_data.get("data", {}).get("noteData")
-            note_id = note.get("noteId")
             if not note:
                 raise Exception("No note data found in JSON")
 
+            note_id = note.get("noteId")
             if not note_id:
                 raise Exception("No noteId found in note data")
 

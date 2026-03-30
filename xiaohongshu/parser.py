@@ -229,22 +229,28 @@ class XiaohongshuParser:
                 name=user.get("nickName", ""),
                 username=user_id,
                 avatar=HttpUrl(user.get("avatar")) if user.get("avatar") else None,
-                url=None
+                url=None,
+                banner=None,
+                description=None
             )
         
-        query = urlencode({"xsec_source": "pc_note", "xsec_token": xsec_token})
+        query = urlencode({"xsec_token": xsec_token})
         profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}"
-        red_id_fetch_url = f"{profile_url}?{query}"
+        profile_fetch_url = f"{profile_url}?{query}"
 
         name = user.get("nickName", "")
         avatar = user.get("avatar")
         red_id = ""
+        banner = ""
+        description = ""
         try:
-            profile_state = await self._fetch_state(red_id_fetch_url)
+            profile_state = await self._fetch_state(profile_fetch_url)
             user_info = profile_state.get("profile", {}).get("userInfo", {})
             red_id = user_info.get("redId", "")
             name = user_info.get("nickname", "") or name
             avatar = user_info.get("images", "") or avatar
+            banner = user_info.get("bannerImage", "")
+            description = user_info.get("desc", "")
         except Exception as e:
             self.context.logger.warning(f"Failed to fetch profile for user {user_id}: {e}")
 
@@ -253,7 +259,9 @@ class XiaohongshuParser:
             name=name,
             username=red_id or user_id,
             avatar=HttpUrl(avatar) if avatar else None,
-            url=HttpUrl(profile_url)
+            url=HttpUrl(profile_url),
+            banner=HttpUrl(banner) if banner else None,
+            description=description
         )
 
     def _parse_platform(self) -> ParserPlatformInfo:

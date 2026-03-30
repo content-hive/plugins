@@ -102,24 +102,27 @@ class XiaohongshuParser:
             self.context.logger.exception(f"Failed to fetch or parse {url}")
             raise Exception(f"Failed to fetch or parse page: {e}")
 
-    def _extract_master_url(self, stream: dict) -> Optional[str]:
-        """Extract the best available video master URL from a stream dict.
-
-        Iterate codecs in priority order and return the masterUrl of the
-        first stream entry found.
+    def _extract_video_info(self, stream: dict) -> Optional[dict]:
+        """Extract video information from the stream dict, prioritizing codecs in STREAM_CODEC_PRIORITY.
 
         Args:
             stream: Stream dict containing codec keys (h264, h265, h266, av1).
 
         Returns:
-            masterUrl string, or None if no valid stream entry is found.
+            Video information dict with keys 'url', 'duration', 'width', 'height', or None if no valid stream entry is found.
         """
         for codec in STREAM_CODEC_PRIORITY:
             entries = stream.get(codec) or []
-            if entries and entries[0].get("masterUrl"):
-                url = entries[0]["masterUrl"]
-                url = re.sub(r"^https?://[^/]+", VIDEO_CDN_URL, url)
-                return url
+            for entry in entries:
+                if entry.get("masterUrl"):
+                    url = entry["masterUrl"]
+                    url = re.sub(r"^https?://[^/]+", VIDEO_CDN_URL, url)
+                    return {
+                        "url": url,
+                        "duration": entry.get("duration"),
+                        "width": entry.get("width"),
+                        "height": entry.get("height")
+                    }
         return None
 
     def _extract_trace_id(self, url: str) -> Optional[str]:
@@ -169,13 +172,16 @@ class XiaohongshuParser:
                     .get("media", {})
                     .get("stream", {})
             )
-            vid_url = self._extract_master_url(stream)
-            if vid_url:
+            vid_info = self._extract_video_info(stream)
+            if vid_info:
                 media_list.append(ParserMediaInfo(
-                    url=HttpUrl(vid_url),
+                    url=HttpUrl(vid_info["url"]),
                     type=MediaType.VIDEO,
                     title=None,
-                    cover=HttpUrl(cover_url) if cover_url else None
+                    cover=HttpUrl(cover_url) if cover_url else None,
+                    duration=vid_info.get("duration"),
+                    width=vid_info.get("width"),
+                    height=vid_info.get("height")
                 ))
         else:
             # Image note: iterate imageList, distinguish normal image and live photo
@@ -186,13 +192,16 @@ class XiaohongshuParser:
                     continue
                 if img.get("livePhoto", False):
                     # Live photo: video in stream, cover is image
-                    vid_url = self._extract_master_url(img.get("stream", {}))
-                    if vid_url:
+                    vid_info = self._extract_video_info(img.get("stream", {}))
+                    if vid_info:
                         media_list.append(ParserMediaInfo(
-                            url=HttpUrl(vid_url),
+                            url=HttpUrl(vid_info["url"]),
                             type=MediaType.LIVEPHOTO,
                             title=None,
-                            cover=HttpUrl(img_url)
+                            cover=HttpUrl(img_url),
+                            duration=vid_info.get("duration"),
+                            width=img.get("width"),
+                            height=img.get("height")
                         ))
                 else:
                     # Normal image
@@ -200,7 +209,10 @@ class XiaohongshuParser:
                         url=HttpUrl(img_url),
                         type=MediaType.IMAGE,
                         title=None,
-                        cover=None
+                        cover=None,
+                        duration=None,
+                        width=img.get("width"),
+                        height=img.get("height")
                     ))
 
         return media_list

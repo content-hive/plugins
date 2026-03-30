@@ -139,21 +139,30 @@ class FXTwitterParser:
                     url=HttpUrl(item['url']),
                     type=MediaType.IMAGE,
                     title=None,
-                    cover=None
+                    cover=None,
+                    duration=None,
+                    width=item.get('width'),
+                    height=item.get('height')
                 ))
             elif item_type == 'video':
                 media_list.append(ParserMediaInfo(
                     url=HttpUrl(item['url']),
                     type=MediaType.VIDEO,
                     title=None,
-                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None
+                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None,
+                    duration=item.get('duration') * 1000 if 'duration' in item else None,  # Convert seconds to milliseconds
+                    width=item.get('width'),
+                    height=item.get('height')
                 ))
             elif item_type == 'gif':
                 media_list.append(ParserMediaInfo(
                     url=HttpUrl(item['url']),
                     type=MediaType.GIF,
                     title=None,
-                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None
+                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None,
+                    duration=None,
+                    width=item.get('width'),
+                    height=item.get('height')
                 ))
 
         return media_list

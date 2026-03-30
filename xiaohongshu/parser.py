@@ -86,7 +86,6 @@ class XiaohongshuParser:
         try:
             async with self._session.get(url, headers=REQUEST_HEADERS) as resp:
                 html = await resp.text()
-                self.context.logger.debug(f"{html}")
                 if resp.status != 200:
                     preview = html[:500].replace("\n", " ") if html else ""
                     raise Exception(

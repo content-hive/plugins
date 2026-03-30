@@ -145,12 +145,17 @@ class FXTwitterParser:
                     height=item.get('height')
                 ))
             elif item_type == 'video':
+                duration = item.get('duration')
+                if isinstance(duration, (int, float)):
+                    duration_ms = int(duration * 1000)
+                else:
+                    duration_ms = None
                 media_list.append(ParserMediaInfo(
                     url=HttpUrl(item['url']),
                     type=MediaType.VIDEO,
                     title=None,
                     cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None,
-                    duration=item.get('duration') * 1000 if 'duration' in item else None,  # Convert seconds to milliseconds
+                    duration=duration_ms,
                     width=item.get('width'),
                     height=item.get('height')
                 ))

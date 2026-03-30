@@ -160,8 +160,8 @@ class XiaohongshuParser:
 
         if note_type == "video":
             # Video note: imageList[0] is cover, video is in note.video.media.stream
-            cover = (note.get("imageList") or [{}])[0].get("urlDefault")
-            cover_trace_id = self._extract_trace_id(cover) if cover else None
+            cover_img = (note.get("imageList") or [{}])[0]
+            cover_trace_id = cover_img.get("traceId") or cover_img.get("fileId")
             cover_url = self._get_img_url_by_trace_id(cover_trace_id) if cover_trace_id else None
 
             stream = (
@@ -180,7 +180,7 @@ class XiaohongshuParser:
         else:
             # Image note: iterate imageList, distinguish normal image and live photo
             for img in note.get("imageList", []):
-                img_trace_id = self._extract_trace_id(img.get("urlDefault")) if img.get("urlDefault") else None
+                img_trace_id = img.get("traceId") or img.get("fileId")
                 img_url = self._get_img_url_by_trace_id(img_trace_id) if img_trace_id else None
                 if not img_url:
                     continue
@@ -205,26 +205,28 @@ class XiaohongshuParser:
 
         return media_list
 
-    async def _parse_author(self, note: dict) -> ParserAuthorInfo:
-        """Parse author information from note data.
+    async def _parse_author(self, note: dict, xsec_token: str = "") -> ParserAuthorInfo:
+        """Parse author information from a note dict.
 
-        Fetches the user profile page to retrieve redId, which is not
+        Fetches the user profile page to retrieve `redId`, which is not
         available in the note page state.
 
         Args:
-            note: Note data dict from noteDetailMap.
+            note: Note data dict extracted from the page state
+                (typically `noteData.data.noteData`).
+            xsec_token: `xsec_token` from `noteData.routeQuery`, used to
+                construct the profile fetch URL.
 
         Returns:
             ParserAuthorInfo object.
         """
         user = note.get("user", {})
         user_id = user.get("userId", "")
-        xsec_token = user.get("xsecToken", "")
         if not user_id:
             self.context.logger.warning("No userId found in note data")
             return ParserAuthorInfo(
                 uid="",
-                name=user.get("nickname", ""),
+                name=user.get("nickName", ""),
                 username=user_id,
                 avatar=HttpUrl(user.get("avatar")) if user.get("avatar") else None,
                 url=None
@@ -234,23 +236,23 @@ class XiaohongshuParser:
         profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}"
         red_id_fetch_url = f"{profile_url}?{query}"
 
+        name = user.get("nickName", "")
+        avatar = user.get("avatar")
         red_id = ""
         try:
             profile_state = await self._fetch_state(red_id_fetch_url)
-            red_id = (
-                profile_state.get("user", {})
-                            .get("userPageData", {})
-                            .get("basicInfo", {})
-                            .get("redId", "")
-            )
+            user_info = profile_state.get("profile", {}).get("userInfo", {})
+            red_id = user_info.get("redId", "")
+            name = user_info.get("nickname", "") or name
+            avatar = user_info.get("images", "") or avatar
         except Exception as e:
-            self.context.logger.warning(f"Failed to fetch redId for user {user_id}: {e}")
+            self.context.logger.warning(f"Failed to fetch profile for user {user_id}: {e}")
 
         return ParserAuthorInfo(
             uid=user_id,
-            name=user.get("nickname", ""),
+            name=name,
             username=red_id or user_id,
-            avatar=HttpUrl(user.get("avatar")) if user.get("avatar") else None,
+            avatar=HttpUrl(avatar) if avatar else None,
             url=HttpUrl(profile_url)
         )
 
@@ -280,13 +282,17 @@ class XiaohongshuParser:
         try:
             state = await self._fetch_state(url)
 
-            # Extract note ID
-            note_id = state.get("note", {}).get("currentNoteId")
-            note_map = state.get("note", {}).get("noteDetailMap", {})
-            note_detail = note_map.get(note_id) if note_id and note_map else None
-            note = note_detail.get("note") if note_detail else None
+            # Extract note data
+            note_data = state.get("noteData", {})
+            note = note_data.get("data", {}).get("noteData")
             if not note:
                 raise Exception("No note data found in JSON")
+
+            note_id = note.get("noteId")
+            if not note_id:
+                raise Exception("No noteId found in note data")
+
+            xsec_token = note_data.get("routeQuery", {}).get("xsec_token", "")
 
             # Title and content
             title = note.get("title")
@@ -301,7 +307,7 @@ class XiaohongshuParser:
                 title=title,
                 content=content,
                 media=self._parse_media(note),
-                author=await self._parse_author(note),
+                author=await self._parse_author(note, xsec_token),
                 platform=self._parse_platform(),
                 post_time=post_time,
                 parser=DOMAIN,

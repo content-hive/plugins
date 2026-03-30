@@ -1,7 +1,7 @@
 {
     "domain": "fxtwitter",
     "name": "FxTwitter Plugin",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "description": "An X(Twitter) content parsing plugin for Content Hive that uses the fxtwitter API.",
     "author": ["@content-hive"],
     "requirements": [],

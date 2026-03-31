@@ -114,8 +114,9 @@ class XiaohongshuParser:
         for codec in STREAM_CODEC_PRIORITY:
             entries = stream.get(codec) or []
             for entry in entries:
-                if entry.get("masterUrl"):
-                    url = entry["masterUrl"]
+                url = entry.get("masterUrl")
+                if url:
+                    url = url.split('?', 1)[0].split('#', 1)[0]
                     url = re.sub(r"^https?://[^/]+", VIDEO_CDN_URL, url)
                     return {
                         "url": url,

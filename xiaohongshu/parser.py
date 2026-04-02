@@ -4,7 +4,7 @@ Xiaohongshu (Little Red Book) content parser plugin.
 import json
 import re
 from typing import Optional
-from urllib.parse import urlparse, urlencode
+from urllib.parse import urlencode
 
 import aiohttp
 from pydantic import HttpUrl
@@ -46,6 +46,9 @@ async def async_setup_entry(context: PluginContext, entry, async_add_entities):
 
 class XiaohongshuParser:
     """Parser for Xiaohongshu (Little Red Book) content."""
+
+    _JS_INVALID_TOKENS_RE = re.compile(JS_INVALID_TOKENS)
+
     def __init__(self, context: PluginContext, entry):
         self.context = context
         self.entry = entry
@@ -54,13 +57,8 @@ class XiaohongshuParser:
 
     async def async_setup(self):
         """Initialize parser."""
-        try:
-            self._session = aiohttp.ClientSession(trust_env=True)
-            self.context.logger.debug(f"{DOMAIN} parser initialized")
-        except Exception as e:
-            self.context.logger.exception(f"Failed to initialize parser")
-            await self.async_will_remove()
-            raise
+        self._session = aiohttp.ClientSession(trust_env=True)
+        self.context.logger.debug(f"{DOMAIN} parser initialized")
 
     def can_parse(self, data: dict) -> bool:
         """Check if the URL is a Xiaohongshu note URL."""
@@ -96,7 +94,7 @@ class XiaohongshuParser:
                 raise Exception("No window.__INITIAL_STATE__ JSON found")
             # Replace JS-only tokens with JSON null using word boundaries
             # to avoid corrupting occurrences inside string values.
-            state_json = re.compile(JS_INVALID_TOKENS).sub("null", match.group(1))
+            state_json = self._JS_INVALID_TOKENS_RE.sub("null", match.group(1))
             return json.loads(state_json)
         except Exception as e:
             self.context.logger.exception(f"Failed to fetch or parse {url}")
@@ -116,7 +114,7 @@ class XiaohongshuParser:
             for entry in entries:
                 url = entry.get("masterUrl")
                 if url:
-                    url = url.split('?', 1)[0].split('#', 1)[0]
+                    url = self._strip_url_query(url)
                     url = re.sub(r"^https?://[^/]+", VIDEO_CDN_URL, url)
                     return {
                         "url": url,
@@ -126,18 +124,16 @@ class XiaohongshuParser:
                     }
         return None
 
-    def _extract_trace_id(self, url: str) -> Optional[str]:
-        """Extract traceId from a Xiaohongshu image/video URL.
+    def _strip_url_query(self, url: str) -> str:
+        """Remove query string and fragment from a URL.
 
         Args:
-            url: The CDN URL string to extract traceId from.
+            url: The URL string to strip.
+
         Returns:
-            traceId string if found, else None.
+            URL with everything after '?' (and '#') removed.
         """
-        path = urlparse(url).path
-        parts = path.split("/")
-        trace_id = "/".join(parts[3:]).split("!")[0]
-        return trace_id
+        return url.split('?', 1)[0].split('#', 1)[0]
 
     def _get_img_url_by_trace_id(self, trace_id: str) -> Optional[str]:
         """Construct image URL from traceId.
@@ -239,9 +235,9 @@ class XiaohongshuParser:
             self.context.logger.warning("No userId found in note data")
             return ParserAuthorInfo(
                 uid="",
-                name=user.get("nickName", ""),
-                username=user_id,
-                avatar=HttpUrl(user.get("avatar")) if user.get("avatar") else None,
+                name="",
+                username="",
+                avatar=None,
                 url=None,
                 banner=None,
                 description=None
@@ -252,7 +248,7 @@ class XiaohongshuParser:
         profile_fetch_url = f"{profile_url}?{query}"
 
         name = user.get("nickName", "")
-        avatar = user.get("avatar")
+        avatar = self._strip_url_query(user.get("avatar", "") or "")
         red_id = ""
         banner = ""
         description = ""
@@ -261,8 +257,8 @@ class XiaohongshuParser:
             user_info = profile_state.get("profile", {}).get("userInfo", {})
             red_id = user_info.get("redId", "")
             name = user_info.get("nickname", "") or name
-            avatar = user_info.get("images", "") or avatar
-            banner = user_info.get("bannerImage", "")
+            avatar = self._strip_url_query(user_info.get("images", "") or avatar)
+            banner = self._strip_url_query(user_info.get("bannerImage", ""))
             description = user_info.get("desc", "")
         except Exception as e:
             self.context.logger.warning(f"Failed to fetch profile for user {user_id}: {e}")

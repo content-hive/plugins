@@ -4,10 +4,10 @@
   "plugins": [
     {
       "domain": "fxtwitter",
-      "name": "FxTwitter Plugin",
-      "version": "0.1.3",
+      "name": "X(Twitter) Plugin",
+      "version": "0.1.6",
       "description": "An X(Twitter) content parsing plugin for Content Hive that uses the fxtwitter API.",
-      "author": ["@content-hive"],
+      "author": ["content-hive"],
       "requirements": [],
       "config_flow": false,
       "path": "fxtwitter",
@@ -15,10 +15,10 @@
     },
     {
       "domain": "xiaohongshu",
-      "name": "Xiaohongshu Plugin",
-      "version": "0.1.3",
-      "description": "A Xiaohongshu content parsing plugin for Content Hive that scrapes note pages and extracts embedded page state.",
-      "author": ["@content-hive"],
+      "name": "小红书插件",
+      "version": "0.1.8",
+      "description": "适用于 Content Hive 的小红书内容解析插件，通过抓取笔记页面并提取嵌入的页面状态来获取内容。",
+      "author": ["content-hive"],
       "requirements": [],
       "config_flow": false,
       "path": "xiaohongshu",

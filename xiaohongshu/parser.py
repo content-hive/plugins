@@ -4,7 +4,7 @@ Xiaohongshu (Little Red Book) content parser plugin.
 import json
 import re
 from typing import Optional
-from urllib.parse import urlparse, urlencode
+from urllib.parse import urlencode
 
 import aiohttp
 from pydantic import HttpUrl
@@ -46,6 +46,9 @@ async def async_setup_entry(context: PluginContext, entry, async_add_entities):
 
 class XiaohongshuParser:
     """Parser for Xiaohongshu (Little Red Book) content."""
+
+    _JS_INVALID_TOKENS_RE = re.compile(JS_INVALID_TOKENS)
+
     def __init__(self, context: PluginContext, entry):
         self.context = context
         self.entry = entry
@@ -54,13 +57,8 @@ class XiaohongshuParser:
 
     async def async_setup(self):
         """Initialize parser."""
-        try:
-            self._session = aiohttp.ClientSession(trust_env=True)
-            self.context.logger.debug(f"{DOMAIN} parser initialized")
-        except Exception as e:
-            self.context.logger.exception(f"Failed to initialize parser")
-            await self.async_will_remove()
-            raise
+        self._session = aiohttp.ClientSession(trust_env=True)
+        self.context.logger.debug(f"{DOMAIN} parser initialized")
 
     def can_parse(self, data: dict) -> bool:
         """Check if the URL is a Xiaohongshu note URL."""
@@ -96,44 +94,46 @@ class XiaohongshuParser:
                 raise Exception("No window.__INITIAL_STATE__ JSON found")
             # Replace JS-only tokens with JSON null using word boundaries
             # to avoid corrupting occurrences inside string values.
-            state_json = re.compile(JS_INVALID_TOKENS).sub("null", match.group(1))
+            state_json = self._JS_INVALID_TOKENS_RE.sub("null", match.group(1))
             return json.loads(state_json)
         except Exception as e:
             self.context.logger.exception(f"Failed to fetch or parse {url}")
             raise Exception(f"Failed to fetch or parse page: {e}")
 
-    def _extract_master_url(self, stream: dict) -> Optional[str]:
-        """Extract the best available video master URL from a stream dict.
-
-        Iterate codecs in priority order and return the masterUrl of the
-        first stream entry found.
+    def _extract_video_info(self, stream: dict) -> Optional[dict]:
+        """Extract video information from the stream dict, prioritizing codecs in STREAM_CODEC_PRIORITY.
 
         Args:
             stream: Stream dict containing codec keys (h264, h265, h266, av1).
 
         Returns:
-            masterUrl string, or None if no valid stream entry is found.
+            Video information dict with keys 'url', 'duration', 'width', 'height', or None if no valid stream entry is found.
         """
         for codec in STREAM_CODEC_PRIORITY:
             entries = stream.get(codec) or []
-            if entries and entries[0].get("masterUrl"):
-                url = entries[0]["masterUrl"]
-                url = re.sub(r"^https?://[^/]+", VIDEO_CDN_URL, url)
-                return url
+            for entry in entries:
+                url = entry.get("masterUrl")
+                if url:
+                    url = self._strip_url_query(url)
+                    url = re.sub(r"^https?://[^/]+", VIDEO_CDN_URL, url)
+                    return {
+                        "url": url,
+                        "duration": entry.get("duration"),
+                        "width": entry.get("width"),
+                        "height": entry.get("height")
+                    }
         return None
 
-    def _extract_trace_id(self, url: str) -> Optional[str]:
-        """Extract traceId from a Xiaohongshu image/video URL.
+    def _strip_url_query(self, url: str) -> str:
+        """Remove query string and fragment from a URL.
 
         Args:
-            url: The CDN URL string to extract traceId from.
+            url: The URL string to strip.
+
         Returns:
-            traceId string if found, else None.
+            URL with everything after '?' (and '#') removed.
         """
-        path = urlparse(url).path
-        parts = path.split("/")
-        trace_id = "/".join(parts[3:]).split("!")[0]
-        return trace_id
+        return url.split('?', 1)[0].split('#', 1)[0]
 
     def _get_img_url_by_trace_id(self, trace_id: str) -> Optional[str]:
         """Construct image URL from traceId.
@@ -160,8 +160,8 @@ class XiaohongshuParser:
 
         if note_type == "video":
             # Video note: imageList[0] is cover, video is in note.video.media.stream
-            cover = (note.get("imageList") or [{}])[0].get("urlDefault")
-            cover_trace_id = self._extract_trace_id(cover) if cover else None
+            cover_img = (note.get("imageList") or [{}])[0]
+            cover_trace_id = cover_img.get("traceId") or cover_img.get("fileId")
             cover_url = self._get_img_url_by_trace_id(cover_trace_id) if cover_trace_id else None
 
             stream = (
@@ -169,30 +169,36 @@ class XiaohongshuParser:
                     .get("media", {})
                     .get("stream", {})
             )
-            vid_url = self._extract_master_url(stream)
-            if vid_url:
+            vid_info = self._extract_video_info(stream)
+            if vid_info:
                 media_list.append(ParserMediaInfo(
-                    url=HttpUrl(vid_url),
+                    url=HttpUrl(vid_info["url"]),
                     type=MediaType.VIDEO,
                     title=None,
-                    cover=HttpUrl(cover_url) if cover_url else None
+                    cover=HttpUrl(cover_url) if cover_url else None,
+                    duration=vid_info.get("duration"),
+                    width=vid_info.get("width"),
+                    height=vid_info.get("height")
                 ))
         else:
             # Image note: iterate imageList, distinguish normal image and live photo
             for img in note.get("imageList", []):
-                img_trace_id = self._extract_trace_id(img.get("urlDefault")) if img.get("urlDefault") else None
+                img_trace_id = img.get("traceId") or img.get("fileId")
                 img_url = self._get_img_url_by_trace_id(img_trace_id) if img_trace_id else None
                 if not img_url:
                     continue
                 if img.get("livePhoto", False):
                     # Live photo: video in stream, cover is image
-                    vid_url = self._extract_master_url(img.get("stream", {}))
-                    if vid_url:
+                    vid_info = self._extract_video_info(img.get("stream", {}))
+                    if vid_info:
                         media_list.append(ParserMediaInfo(
-                            url=HttpUrl(vid_url),
+                            url=HttpUrl(vid_info["url"]),
                             type=MediaType.LIVEPHOTO,
                             title=None,
-                            cover=HttpUrl(img_url)
+                            cover=HttpUrl(img_url),
+                            duration=vid_info.get("duration"),
+                            width=img.get("width"),
+                            height=img.get("height")
                         ))
                 else:
                     # Normal image
@@ -200,58 +206,71 @@ class XiaohongshuParser:
                         url=HttpUrl(img_url),
                         type=MediaType.IMAGE,
                         title=None,
-                        cover=None
+                        cover=None,
+                        duration=None,
+                        width=img.get("width"),
+                        height=img.get("height")
                     ))
 
         return media_list
 
-    async def _parse_author(self, note: dict) -> ParserAuthorInfo:
-        """Parse author information from note data.
+    async def _parse_author(self, note: dict, xsec_token: str = "") -> ParserAuthorInfo:
+        """Parse author information from a note dict.
 
-        Fetches the user profile page to retrieve redId, which is not
+        Fetches the user profile page to retrieve `redId`, which is not
         available in the note page state.
 
         Args:
-            note: Note data dict from noteDetailMap.
+            note: Note data dict extracted from the page state
+                (typically `noteData.data.noteData`).
+            xsec_token: `xsec_token` from `noteData.routeQuery`, used to
+                construct the profile fetch URL.
 
         Returns:
             ParserAuthorInfo object.
         """
         user = note.get("user", {})
         user_id = user.get("userId", "")
-        xsec_token = user.get("xsecToken", "")
         if not user_id:
             self.context.logger.warning("No userId found in note data")
             return ParserAuthorInfo(
                 uid="",
-                name=user.get("nickname", ""),
-                username=user_id,
-                avatar=HttpUrl(user.get("avatar")) if user.get("avatar") else None,
-                url=None
+                name="",
+                username="",
+                avatar=None,
+                url=None,
+                banner=None,
+                description=None
             )
         
-        query = urlencode({"xsec_source": "pc_note", "xsec_token": xsec_token})
+        query = urlencode({"xsec_token": xsec_token})
         profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}"
-        red_id_fetch_url = f"{profile_url}?{query}"
+        profile_fetch_url = f"{profile_url}?{query}"
 
+        name = user.get("nickName", "")
+        avatar = self._strip_url_query(user.get("avatar", "") or "")
         red_id = ""
+        banner = ""
+        description = ""
         try:
-            profile_state = await self._fetch_state(red_id_fetch_url)
-            red_id = (
-                profile_state.get("user", {})
-                            .get("userPageData", {})
-                            .get("basicInfo", {})
-                            .get("redId", "")
-            )
+            profile_state = await self._fetch_state(profile_fetch_url)
+            user_info = profile_state.get("profile", {}).get("userInfo", {})
+            red_id = user_info.get("redId", "")
+            name = user_info.get("nickname", "") or name
+            avatar = self._strip_url_query(user_info.get("images", "") or avatar)
+            banner = self._strip_url_query(user_info.get("bannerImage", ""))
+            description = user_info.get("desc", "")
         except Exception as e:
-            self.context.logger.warning(f"Failed to fetch redId for user {user_id}: {e}")
+            self.context.logger.warning(f"Failed to fetch profile for user {user_id}: {e}")
 
         return ParserAuthorInfo(
             uid=user_id,
-            name=user.get("nickname", ""),
+            name=name,
             username=red_id or user_id,
-            avatar=HttpUrl(user.get("avatar")) if user.get("avatar") else None,
-            url=HttpUrl(profile_url)
+            avatar=HttpUrl(avatar) if avatar else None,
+            url=HttpUrl(profile_url),
+            banner=HttpUrl(banner) if banner else None,
+            description=description
         )
 
     def _parse_platform(self) -> ParserPlatformInfo:
@@ -280,13 +299,17 @@ class XiaohongshuParser:
         try:
             state = await self._fetch_state(url)
 
-            # Extract note ID
-            note_id = state.get("note", {}).get("currentNoteId")
-            note_map = state.get("note", {}).get("noteDetailMap", {})
-            note_detail = note_map.get(note_id) if note_id and note_map else None
-            note = note_detail.get("note") if note_detail else None
+            # Extract note data
+            note_data = state.get("noteData", {})
+            note = note_data.get("data", {}).get("noteData")
             if not note:
                 raise Exception("No note data found in JSON")
+
+            note_id = note.get("noteId")
+            if not note_id:
+                raise Exception("No noteId found in note data")
+
+            xsec_token = note_data.get("routeQuery", {}).get("xsec_token", "")
 
             # Title and content
             title = note.get("title")
@@ -301,7 +324,7 @@ class XiaohongshuParser:
                 title=title,
                 content=content,
                 media=self._parse_media(note),
-                author=await self._parse_author(note),
+                author=await self._parse_author(note, xsec_token),
                 platform=self._parse_platform(),
                 post_time=post_time,
                 parser=DOMAIN,

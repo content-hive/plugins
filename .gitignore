@@ -214,3 +214,7 @@ __marimo__/
 
 # Temporary files
 .temp/
+
+# Runtime data for plugins
+plugins.yaml
+**/manifest.json

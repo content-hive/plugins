@@ -139,21 +139,35 @@ class FXTwitterParser:
                     url=HttpUrl(item['url']),
                     type=MediaType.IMAGE,
                     title=None,
-                    cover=None
+                    cover=None,
+                    duration=None,
+                    width=item.get('width'),
+                    height=item.get('height')
                 ))
             elif item_type == 'video':
+                duration = item.get('duration')
+                if isinstance(duration, (int, float)):
+                    duration_ms = int(duration * 1000)
+                else:
+                    duration_ms = None
                 media_list.append(ParserMediaInfo(
                     url=HttpUrl(item['url']),
                     type=MediaType.VIDEO,
                     title=None,
-                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None
+                    cover=HttpUrl(item['thumbnail_url']) if item.get('thumbnail_url') else None,
+                    duration=duration_ms,
+                    width=item.get('width'),
+                    height=item.get('height')
                 ))
             elif item_type == 'gif':
                 media_list.append(ParserMediaInfo(
                     url=HttpUrl(item['url']),
                     type=MediaType.GIF,
                     title=None,
-                    cover=HttpUrl(item['thumbnail_url']) if 'thumbnail_url' in item else None
+                    cover=HttpUrl(item['thumbnail_url']) if item.get('thumbnail_url') else None,
+                    duration=None,
+                    width=item.get('width'),
+                    height=item.get('height')
                 ))
 
         return media_list
@@ -167,7 +181,9 @@ class FXTwitterParser:
             name=author_data['name'],
             username=author_data['screen_name'],
             avatar=HttpUrl(author_data['avatar_url']),
-            url=HttpUrl(author_data['url'])
+            url=HttpUrl(author_data['url']),
+            banner=HttpUrl(author_data['banner_url']) if author_data.get('banner_url') else None,
+            description=author_data.get('description')
         )
     
     def _get_platform_info(self) -> ParserPlatformInfo:

@@ -121,18 +121,28 @@ def build_author(aweme: dict) -> ParserAuthorInfo:
     uid = str(author.get("uid") or "")
     sec_uid = author.get("sec_uid") or ""
     nickname = author.get("nickname") or ""
-    unique_id = author.get("unique_id") or ""
-    avatar_url = extract_first_url(author.get("avatar_larger"))
+    short_id = author.get("short_id") or ""
+    avatar_url = author.get("avatar_thumb", {}).get("url_list", [None])[0] or author.get("avatar_medium", {}).get("url_list", [None])[0]
     profile_url = f"{PLATFORM_URL}/user/{sec_uid}" if sec_uid else None
 
     return ParserAuthorInfo(
         uid=uid,
         name=nickname or None,
-        username=unique_id or uid,
+        username=short_id or uid,
         avatar=HttpUrl(avatar_url) if avatar_url else None,
         url=HttpUrl(profile_url) if profile_url else None,
         banner=None,
         description=author.get("signature") or None,
+    )
+
+
+def build_platform() -> ParserPlatformInfo:
+    """Get platform information."""
+    return ParserPlatformInfo(
+        code=PLATFORM_CODE,
+        name=PLATFORM_NAME,
+        url=HttpUrl(PLATFORM_URL),
+        icon_url=HttpUrl(PLATFORM_ICON)
     )
 
 
@@ -150,12 +160,7 @@ def build_result(url: str, aweme: dict) -> ParserResult:
             else build_gallery_media(aweme)
         ),
         author=build_author(aweme),
-        platform=ParserPlatformInfo(
-            code=PLATFORM_CODE,
-            name=PLATFORM_NAME,
-            url=HttpUrl(PLATFORM_URL),
-            icon_url=HttpUrl(PLATFORM_ICON),
-        ),
+        platform=build_platform(),
         post_time=aweme.get("create_time") or None,
         parser=DOMAIN,
         state=ParserResultStatus.SUCCESS,

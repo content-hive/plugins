@@ -11,7 +11,7 @@ from .builder import build_result
 from .const import DOMAIN, URL_PATTERN
 from .utils import parse_cookie_string
 
-_AWEME_ID_RE = re.compile(r"/(?:video|note)/(\d+)")
+_AWEME_ID_RE = re.compile(r"/(?:video|note|gallery|slides)/(\d+)")
 
 
 async def async_setup_entry(context: PluginContext, entry, async_add_entities):
@@ -39,7 +39,8 @@ class DouyinParser:
     async def async_setup(self):
         """Initialize the API client with cookies from the entry config."""
         raw_cookies = (self.entry.data or {}).get("cookies", "")
-        self._client = DouyinAPIClient(cookies=raw_cookies, logger=self.context.logger)
+        cookies = parse_cookie_string(raw_cookies)
+        self._client = DouyinAPIClient(cookies=cookies, logger=self.context.logger)
         await self._client._ensure_session()
         self.context.logger.debug(f"{DOMAIN} parser initialized")
 

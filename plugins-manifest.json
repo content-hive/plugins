@@ -27,6 +27,19 @@
       "config_flow": false,
       "path": "xiaohongshu",
       "enabled": true
+    },
+    {
+      "domain": "douyin",
+      "name": "抖音",
+      "version": "0.1.0",
+      "description": "一个用于Content Hive的抖音内容解析插件。通过解析抖音链接，提取视频内容、作者信息、评论等数据。",
+      "author": [
+        "content-hive"
+      ],
+      "requirements": ["gmssl>=3.2.2"],
+      "config_flow": false,
+      "path": "douyin",
+      "enabled": true
     }
   ]
 }

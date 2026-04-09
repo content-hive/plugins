@@ -1,0 +1,29 @@
+{
+  "id": "7620698035534318705",
+  "url": "https://v.douyin.com/hj-d0s-soRk/",
+  "content": "当你不害怕失去这张牌时，你就能玩转它#人生亦是",
+  "images": [],
+  "videos": [
+    {
+      "url": "https://aweme.snssdk.com/aweme/v1/play/?video_id=v1e00fgi0000d712fpfog65pl3i88hjg&ratio=1080p",
+      "cover": "https://p26-sign.douyinpic.com/tos-cn-i-0813c000-ce/o4vNfADwkKDESF9Hpg1okAeAwExCEkhIAA4iEe~tplv-dy-resize-walign-adapt-aq:540:q75.webp?lk3s=138a59ce&x-expires=1776931200&x-signature=V3%2FF%2BQcnXTU36DSkBWcWk9KRLtM%3D&from=327834062&s=PackSourceEnum_DOUYIN_REFLOW&se=false&sc=cover&biz_tag=aweme_video&l=2026040916394615C3B5C0681BDA8E32F9"
+    }
+  ],
+  "audios": [],
+  "createdTime": 1774332029000,
+  "author": {
+    "uid": "55363318",
+    "name": "十九👦",
+    "userName": "",
+    "avatar": "https://p11.douyinpic.com/aweme/100x100/aweme-avatar/tos-cn-i-0813_ogz7AAoD9NjbtmDeUgACVQAdIARlx3n4e63A8C.jpeg?from=327834062",
+    "url": "https://m.douyin.com/share/user/MS4wLjABAAAAhqCFY87KqlTBj1fg1wysyEScP2CSeWc194gXt22h364"
+  },
+  "parser": "dyn1",
+  "state": "success",
+  "platform": {
+    "name": "抖音",
+    "code": "douyin",
+    "url": "https://www.douyin.com/",
+    "iconUrl": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ee/25/90/ee259050-6e93-6f8a-1068-9c299b0db7f5/AppIcon-0-0-1x_U007emarketing-0-6-0-0-85-220.png/512x512bb.jpg"
+  }
+}

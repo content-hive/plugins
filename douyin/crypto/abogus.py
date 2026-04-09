@@ -80,15 +80,15 @@ class StringProcessor:
     """
 
     @staticmethod
-    def to_ord_str(s: str) -> str:
+    def to_ord_str(s: bytes) -> str:
         """
-        将字符串转换为 ASCII 码字符串 (Convert a string to an ASCII code string).
+        将字节串转换为字符串 (Convert a byte string to a str using chr()).
 
         Args:
-            s (str): 输入字符串 (Input string).
+            s (bytes): 输入字节串 (Input bytes).
 
         Returns:
-            str: 转换后的 ASCII 码字符串 (Converted ASCII code string).
+            str: 转换后的字符串 (Converted string).
         """
         return "".join([chr(i) for i in s])
 
@@ -106,12 +106,12 @@ class StringProcessor:
         return [ord(char) for char in s]
 
     @staticmethod
-    def to_char_str(s: str) -> str:
+    def to_char_str(s: List[int]) -> str:
         """
         将 ASCII 码列表转换为字符串 (Convert a list of ASCII codes to a string).
 
         Args:
-            s (str): ASCII 码列表 (List of ASCII codes).
+            s (List[int]): ASCII 码列表 (List of ASCII codes).
 
         Returns:
             str: 转换后的字符串 (Converted string).

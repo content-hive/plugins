@@ -20,13 +20,7 @@ from urllib.parse import urlencode
 import aiohttp
 
 from .const import BASE_URL, USER_AGENT, REQUEST_HEADERS
-from .xbogus import XBogus
-
-try:
-    from .abogus import ABogus, BrowserFingerprintGenerator
-except Exception:  # pragma: no cover - optional dependency (requires gmssl)
-    ABogus = None  # type: ignore[assignment,misc]
-    BrowserFingerprintGenerator = None  # type: ignore[assignment,misc]
+from .crypto import XBogus, ABogus, BrowserFingerprintGenerator
 
 
 class MsTokenManager:
@@ -258,6 +252,7 @@ class DouyinAPIClient:
     ) -> Dict[str, Any]:
         """Send a signed GET request with retries, mirroring the reference _request_json."""
         await self._ensure_session()
+        assert self._session is not None
         delays = [1, 2, 5]
 
         for attempt in range(max_retries):
@@ -269,7 +264,6 @@ class DouyinAPIClient:
                     headers={**self._headers, "User-Agent": ua},
                 ) as response:
                     if response.status == 200:
-                        self.logger.debug(f"Response body: {await response.text()}")
                         data = await response.json(content_type=None)
                         return data if isinstance(data, dict) else {}
                     # 4xx (except 429) are not retryable

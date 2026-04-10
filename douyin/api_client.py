@@ -156,13 +156,13 @@ class DouyinAPIClient:
         )
 
     async def __aenter__(self) -> "DouyinAPIClient":
-        await self._ensure_session()
+        await self.ensure_session()
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
         await self.close()
 
-    async def _ensure_session(self):
+    async def ensure_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(
                 headers=self._headers,
@@ -170,6 +170,7 @@ class DouyinAPIClient:
                 timeout=aiohttp.ClientTimeout(total=30),
                 raise_for_status=False,
             )
+        return self._session
 
     async def close(self):
         if self._session and not self._session.closed:
@@ -251,7 +252,7 @@ class DouyinAPIClient:
         max_retries: int = 3,
     ) -> Dict[str, Any]:
         """Send a signed GET request with retries, mirroring the reference _request_json."""
-        await self._ensure_session()
+        await self.ensure_session()
         assert self._session is not None
         delays = [1, 2, 5]
 
@@ -310,7 +311,7 @@ class DouyinAPIClient:
 
     async def resolve_short_url(self, url: str) -> str:
         """Follow HTTP redirects and return the final URL."""
-        await self._ensure_session()
+        await self.ensure_session()
         assert self._session is not None
         try:
             async with self._session.get(url, allow_redirects=True) as resp:

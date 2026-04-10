@@ -37,6 +37,7 @@ async def async_setup_entry(context: PluginContext, entry):
     """
     if context.async_forward_entry_setup:
         await context.async_forward_entry_setup(entry, "parser")
+        await context.async_forward_entry_setup(entry, "downloader")
     context.logger.info(f"{DOMAIN} plugin entry setup completed")
     return True
 
@@ -54,7 +55,7 @@ async def async_unload_entry(context: PluginContext, entry):
         True if unload successful, False otherwise
     """
     if context.async_unload_platforms:
-        success = await context.async_unload_platforms(entry, ["parser"])
+        success = await context.async_unload_platforms(entry, ["parser", "downloader"])
     else:
         success = True
     if success:

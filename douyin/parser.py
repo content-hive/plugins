@@ -134,7 +134,6 @@ class Parser:
             raise RuntimeError("Parser not initialized")
         
         video = aweme.get("video") or {}
-        ratio = video.get("ratio") or "1080p"
         width = video.get("width")
         height = video.get("height")
         duration = video.get("duration")  # milliseconds

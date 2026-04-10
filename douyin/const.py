@@ -1,7 +1,5 @@
 """Constants for Douyin parser plugin."""
 
-import random
-
 DOMAIN = "douyin"
 
 # Platform info
@@ -10,11 +8,11 @@ PLATFORM_NAME = "抖音"
 PLATFORM_URL = "https://www.douyin.com"
 PLATFORM_ICON = "https://raw.githubusercontent.com/content-hive/assets/main/IconSet/抖音.png"
 
-# URL pattern — matches canonical video/note pages and v.douyin.com short links.
+# URL pattern — matches canonical video/note/gallery/slides pages and v.douyin.com short links.
 # Uses re.match() so the host must appear at the start of the string.
 URL_PATTERN = (
     r"https?://(?:"
-    r"(?:www\.)?douyin\.com/(?:video|note)/\d+"
+    r"(?:www\.)?douyin\.com/(?:video|note|gallery|slides)/\d+"
     r"|v\.douyin\.com/\S+"
     r")"
 )

@@ -127,7 +127,7 @@ class Downloader:
             except aiohttp.ClientResponseError as e:
                 write_path.unlink(missing_ok=True)
                 tmp_path.unlink(missing_ok=True)
-                if 400 <= e.status < 500:
+                if 400 <= e.status < 500 and e.status != 429:
                     raise
                 last_error = e
 
@@ -138,6 +138,17 @@ class Downloader:
 
             if attempt < self._max_retries:
                 wait = 2 ** attempt
+                if (
+                    isinstance(last_error, aiohttp.ClientResponseError)
+                    and last_error.status == 429
+                    and last_error.headers is not None
+                ):
+                    retry_after = last_error.headers.get("Retry-After")
+                    if retry_after is not None:
+                        try:
+                            wait = float(retry_after)
+                        except ValueError:
+                            pass
                 self.context.logger.warning(
                     f"Download attempt {attempt + 1}/{self._max_retries + 1} "
                     f"failed for {url}, retrying in {wait}s: {last_error}"

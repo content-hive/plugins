@@ -182,7 +182,7 @@ class Parser:
             video_url = url_list[0]
         
         cover_url = extract_first_url(video.get("origin_cover"))
-        
+
         return [
             ParserMediaInfo(
                 url=HttpUrl(video_url),
@@ -257,13 +257,14 @@ class Parser:
         sec_uid = author.get("sec_uid") or ""
         nickname = author.get("nickname") or ""
         short_id = author.get("short_id") or ""
+        unique_id = author.get("unique_id") or ""
         avatar_url = author.get("avatar_thumb", {}).get("url_list", [None])[0] or author.get("avatar_medium", {}).get("url_list", [None])[0]
         profile_url = f"{PLATFORM_URL}/user/{sec_uid}" if sec_uid else None
 
         return ParserAuthorInfo(
             uid=uid,
             name=nickname or None,
-            username=short_id or uid,
+            username= unique_id or short_id or uid,
             avatar=HttpUrl(avatar_url) if avatar_url else None,
             url=HttpUrl(profile_url) if profile_url else None,
             banner=None,

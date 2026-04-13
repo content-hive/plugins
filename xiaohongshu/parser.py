@@ -159,41 +159,42 @@ class XiaohongshuParser:
 
         images = note.get("imageList", [])
         for img in images:
-                img_id = img.get("traceId") or img.get("fileId")
-                img_url = self._get_img_url_by_trace_id(img_id) if img_id else None
-                if not img_url:
-                    continue
-                if img.get("livePhoto", False):
-                    # Live photo: video in stream, cover is image
-                    vid_info = self._extract_video_info(img.get("stream", {}))
-                    if vid_info:
-                        media_list.append(ParserMediaInfo(
-                            url=HttpUrl(vid_info["url"]),
-                            type=MediaType.LIVEPHOTO,
-                            title=None,
-                            cover=HttpUrl(img_url),
-                            duration=vid_info.get("duration"),
-                            width=img.get("width"),
-                            height=img.get("height")
-                        ))
-                else:
-                    # Normal image
+            img_id = img.get("traceId") or img.get("fileId")
+            img_url = self._get_img_url_by_trace_id(img_id) if img_id else None
+            if not img_url:
+                continue
+            if img.get("livePhoto", False):
+                # Live photo: video in stream, cover is image
+                vid_info = self._extract_video_info(img.get("stream", {}))
+                if vid_info:
                     media_list.append(ParserMediaInfo(
-                        url=HttpUrl(img_url),
-                        type=MediaType.IMAGE,
+                        url=HttpUrl(vid_info["url"]),
+                        type=MediaType.LIVEPHOTO,
                         title=None,
-                        cover=None,
-                        duration=None,
+                        cover=HttpUrl(img_url),
+                        duration=vid_info.get("duration"),
                         width=img.get("width"),
                         height=img.get("height")
-                    ))        
+                    ))
+            else:
+                # Normal image
+                media_list.append(ParserMediaInfo(
+                    url=HttpUrl(img_url),
+                    type=MediaType.IMAGE,
+                    title=None,
+                    cover=None,
+                    duration=None,
+                    width=img.get("width"),
+                    height=img.get("height")
+                ))
 
         video = note.get("video", {})
         video_stream = video.get("media", {}).get("stream", {})
         vid_info = self._extract_video_info(video_stream)
         if vid_info:
             cover_image = video.get("image", {})
-            cover_id = cover_image.get("firstFrameFileid") or images[0].get("traceId") or images[0].get("fileId")
+            first_image = images[0] if images else {}
+            cover_id = cover_image.get("firstFrameFileid") or first_image.get("traceId") or first_image.get("fileId")
             cover_url = self._get_img_url_by_trace_id(cover_id) if cover_id else None
 
             media_list.append(ParserMediaInfo(

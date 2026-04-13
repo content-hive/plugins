@@ -156,35 +156,11 @@ class XiaohongshuParser:
             List of ParserMediaInfo objects.
         """
         media_list = []
-        note_type = note.get("type", "normal")
 
-        if note_type == "video":
-            # Video note: imageList[0] is cover, video is in note.video.media.stream
-            cover_img = (note.get("imageList") or [{}])[0]
-            cover_trace_id = cover_img.get("traceId") or cover_img.get("fileId")
-            cover_url = self._get_img_url_by_trace_id(cover_trace_id) if cover_trace_id else None
-
-            stream = (
-                note.get("video", {})
-                    .get("media", {})
-                    .get("stream", {})
-            )
-            vid_info = self._extract_video_info(stream)
-            if vid_info:
-                media_list.append(ParserMediaInfo(
-                    url=HttpUrl(vid_info["url"]),
-                    type=MediaType.VIDEO,
-                    title=None,
-                    cover=HttpUrl(cover_url) if cover_url else None,
-                    duration=vid_info.get("duration"),
-                    width=vid_info.get("width"),
-                    height=vid_info.get("height")
-                ))
-        else:
-            # Image note: iterate imageList, distinguish normal image and live photo
-            for img in note.get("imageList", []):
-                img_trace_id = img.get("traceId") or img.get("fileId")
-                img_url = self._get_img_url_by_trace_id(img_trace_id) if img_trace_id else None
+        images = note.get("imageList", [])
+        for img in images:
+                img_id = img.get("traceId") or img.get("fileId")
+                img_url = self._get_img_url_by_trace_id(img_id) if img_id else None
                 if not img_url:
                     continue
                 if img.get("livePhoto", False):
@@ -210,8 +186,26 @@ class XiaohongshuParser:
                         duration=None,
                         width=img.get("width"),
                         height=img.get("height")
-                    ))
+                    ))        
 
+        video = note.get("video", {})
+        video_stream = video.get("media", {}).get("stream", {})
+        vid_info = self._extract_video_info(video_stream)
+        if vid_info:
+            cover_image = video.get("image", {})
+            cover_id = cover_image.get("firstFrameFileid") or images[0].get("traceId") or images[0].get("fileId")
+            cover_url = self._get_img_url_by_trace_id(cover_id) if cover_id else None
+
+            media_list.append(ParserMediaInfo(
+                url=HttpUrl(vid_info["url"]),
+                type=MediaType.VIDEO,
+                title=None,
+                cover=HttpUrl(cover_url) if cover_url else None,
+                duration=vid_info.get("duration"),
+                width=vid_info.get("width"),
+                height=vid_info.get("height")
+            ))
+        
         return media_list
 
     async def _parse_author(self, note: dict, xsec_token: str = "") -> ParserAuthorInfo:

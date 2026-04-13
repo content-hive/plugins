@@ -8,15 +8,19 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import random
 import string
+import tempfile
 import time
 import urllib.request
 from http.cookies import SimpleCookie
+from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
+import aiofiles
 import aiohttp
 
 from .const import BASE_URL, USER_AGENT, REQUEST_HEADERS
@@ -219,6 +223,18 @@ class DouyinAPIClient:
             "round_trip_time": "100",
             "msToken": ms_token,
         }
+    
+    def _download_headers(self, user_agent: Optional[str] = None) -> Dict[str, str]:
+        headers = {
+            "Referer": f"{BASE_URL}/",
+            "Origin": BASE_URL,
+            "Accept": "*/*",
+        }
+
+        headers["User-Agent"] = user_agent or self._headers.get(
+            "User-Agent", ""
+        )
+        return headers
 
     def _build_signed_path(self, path: str, params: Dict[str, Any]) -> Tuple[str, str]:
         """Build a signed URL, preferring ABogus over XBogus when available."""
@@ -318,3 +334,84 @@ class DouyinAPIClient:
                 return str(resp.url)
         except Exception:
             return url
+
+    async def download_file(
+        self,
+        url: str,
+        max_retries: int = 3,
+    ) -> Optional[Path]:
+        """Download a single file to the system temp directory and return its path.
+
+        Retries on network errors and 5xx / 429 responses with exponential backoff.
+        """
+        session = await self.ensure_session()
+
+        last_error: Exception = Exception("Unknown error")
+        for attempt in range(max_retries + 1):
+            tmp_fd, tmp_path_str = tempfile.mkstemp()
+            tmp_path = Path(tmp_path_str)
+            os.close(tmp_fd)
+            write_path = tmp_path.with_suffix(".tmp")
+
+            try:
+                async with session.get(
+                    url,
+                    headers=self._download_headers(),
+                    timeout=aiohttp.ClientTimeout(total=300)
+                ) as response:
+                    response.raise_for_status()
+
+                    expected_size = response.content_length
+                    written = 0
+                    async with aiofiles.open(write_path, "wb") as f:
+                        async for chunk in response.content.iter_chunked(8192):
+                            await f.write(chunk)
+                            written += len(chunk)
+
+                    if expected_size is not None and written != expected_size:
+                        last_error = ValueError(
+                            f"Size mismatch: expected {expected_size}, got {written}"
+                        )
+                        if self.logger:
+                            self.logger.warning(f"Size mismatch for {url}: {last_error}")
+                        write_path.unlink(missing_ok=True)
+                        tmp_path.unlink(missing_ok=True)
+                    else:
+                        os.replace(str(write_path), str(tmp_path))
+                        if self.logger:
+                            self.logger.debug(f"Downloaded file from {url} -> {tmp_path}")
+                        return tmp_path
+
+            except aiohttp.ClientResponseError as e:
+                write_path.unlink(missing_ok=True)
+                tmp_path.unlink(missing_ok=True)
+                if 400 <= e.status < 500 and e.status != 429:
+                    raise
+                last_error = e
+
+            except Exception as e:
+                write_path.unlink(missing_ok=True)
+                tmp_path.unlink(missing_ok=True)
+                last_error = e
+
+            if attempt < max_retries:
+                wait = 2 ** attempt
+                if (
+                    isinstance(last_error, aiohttp.ClientResponseError)
+                    and last_error.status == 429
+                    and last_error.headers is not None
+                ):
+                    retry_after = last_error.headers.get("Retry-After")
+                    if retry_after is not None:
+                        try:
+                            wait = float(retry_after)
+                        except ValueError:
+                            pass
+                if self.logger:
+                    self.logger.warning(
+                        f"Download attempt {attempt + 1}/{max_retries + 1} "
+                        f"failed for {url}, retrying in {wait}s: {last_error}"
+                    )
+                await asyncio.sleep(wait)
+
+        raise last_error

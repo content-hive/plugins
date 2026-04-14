@@ -162,7 +162,8 @@ class Parser:
             if not image_urls:
                 continue
 
-            video = item.get("video") or {} if isinstance(item.get("video"), dict) else {}
+            item_video = item.get("video")
+            video = item_video if isinstance(item_video, dict) else {}
             video_urls = extract_video_urls(video)
 
             if video_urls:

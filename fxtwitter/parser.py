@@ -150,7 +150,7 @@ class FXTwitterParser:
                     url=item['url'],
                     type=MediaType.VIDEO,
                     title=None,
-                    cover=item.get('thumbnail_url'),
+                    cover=item.get('thumbnail_url') or None,
                     duration=duration_ms,
                     width=item.get('width'),
                     height=item.get('height')
@@ -160,7 +160,7 @@ class FXTwitterParser:
                     url=item['url'],
                     type=MediaType.GIF,
                     title=None,
-                    cover=item.get('thumbnail_url'),
+                    cover=item.get('thumbnail_url') or None,
                     duration=None,
                     width=item.get('width'),
                     height=item.get('height')
@@ -178,7 +178,7 @@ class FXTwitterParser:
             username=author_data['screen_name'],
             avatar=author_data['avatar_url'],
             url=author_data['url'],
-            banner=author_data.get('banner_url'),
+            banner=author_data.get('banner_url') or None,
             description=author_data.get('description')
         )
     

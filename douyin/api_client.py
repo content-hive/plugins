@@ -225,16 +225,13 @@ class DouyinAPIClient:
             "msToken": ms_token,
         }
     
-    def _download_headers(self, user_agent: Optional[str] = None) -> Dict[str, str]:
+    def _download_headers(self, user_agent: str | None = None) -> Dict[str, str]:
         headers = {
+            "User-Agent": user_agent or self._headers.get("User-Agent", ""),
             "Referer": f"{BASE_URL}/",
             "Origin": BASE_URL,
             "Accept": "*/*",
         }
-
-        headers["User-Agent"] = user_agent or self._headers.get(
-            "User-Agent", ""
-        )
         return headers
 
     def _build_signed_path(self, path: str, params: Dict[str, Any]) -> Tuple[str, str]:
@@ -338,81 +335,88 @@ class DouyinAPIClient:
 
     async def download_file(
         self,
-        url: str,
+        url: str | list[str],
         max_retries: int = 3,
     ) -> Optional[Path]:
-        """Download a single file to the system temp directory and return its path.
+        """Download a file to the system temp directory and return its path.
 
-        Retries on network errors and 5xx / 429 responses with exponential backoff.
+        Accepts a single URL or a list of URLs. Each URL is tried with exponential
+        backoff on network errors, 5xx, and 429 responses. Non-retryable 4xx errors
+        and exhausted retries cause fallback to the next URL. Raises if all URLs fail.
         """
         session = await self.ensure_session()
+        urls = [url] if isinstance(url, str) else url
 
         last_error: Exception = Exception("Unknown error")
-        for attempt in range(max_retries + 1):
-            tmp_fd, tmp_path_str = tempfile.mkstemp()
-            tmp_path = Path(tmp_path_str)
-            os.close(tmp_fd)
-            write_path = tmp_path.with_suffix(".tmp")
+        for current_url in urls:
+            for attempt in range(max_retries + 1):
+                tmp_fd, tmp_path_str = tempfile.mkstemp()
+                tmp_path = Path(tmp_path_str)
+                os.close(tmp_fd)
+                write_path = tmp_path.with_suffix(".tmp")
 
-            try:
-                async with session.get(
-                    url,
-                    headers=self._download_headers(),
-                    timeout=aiohttp.ClientTimeout(total=300)
-                ) as response:
-                    response.raise_for_status()
+                try:
+                    async with session.get(
+                        current_url,
+                        headers=self._download_headers(),
+                        timeout=aiohttp.ClientTimeout(total=300)
+                    ) as response:
+                        response.raise_for_status()
 
-                    expected_size = response.content_length
-                    written = 0
-                    async with aiofiles.open(write_path, "wb") as f:
-                        async for chunk in response.content.iter_chunked(8192):
-                            await f.write(chunk)
-                            written += len(chunk)
+                        expected_size = response.content_length
+                        written = 0
+                        async with aiofiles.open(write_path, "wb") as f:
+                            async for chunk in response.content.iter_chunked(8192):
+                                await f.write(chunk)
+                                written += len(chunk)
 
-                    if expected_size is not None and written != expected_size:
-                        last_error = ValueError(
-                            f"Size mismatch: expected {expected_size}, got {written}"
+                        if expected_size is not None and written != expected_size:
+                            last_error = ValueError(
+                                f"Size mismatch: expected {expected_size}, got {written}"
+                            )
+                            if self.logger:
+                                self.logger.debug(f"Size mismatch for {current_url}: {last_error}")
+                            write_path.unlink(missing_ok=True)
+                            tmp_path.unlink(missing_ok=True)
+                        else:
+                            os.replace(str(write_path), str(tmp_path))
+                            if self.logger:
+                                self.logger.debug(f"Downloaded file from {current_url} -> {tmp_path}")
+                            return tmp_path
+
+                except aiohttp.ClientResponseError as e:
+                    write_path.unlink(missing_ok=True)
+                    tmp_path.unlink(missing_ok=True)
+                    last_error = e
+                    if 400 <= e.status < 500 and e.status != 429:
+                        # Non-retryable 4xx: skip to next URL immediately
+                        if self.logger:
+                            self.logger.debug(f"HTTP {e.status} for {current_url}, trying next URL")
+                        break
+
+                except Exception as e:
+                    write_path.unlink(missing_ok=True)
+                    tmp_path.unlink(missing_ok=True)
+                    last_error = e
+
+                if attempt < max_retries:
+                    wait = 2 ** attempt
+                    if (
+                        isinstance(last_error, aiohttp.ClientResponseError)
+                        and last_error.status == 429
+                        and last_error.headers is not None
+                    ):
+                        retry_after = last_error.headers.get("Retry-After")
+                        if retry_after is not None:
+                            try:
+                                wait = float(retry_after)
+                            except ValueError:
+                                pass
+                    if self.logger:
+                        self.logger.debug(
+                            f"Download attempt {attempt + 1}/{max_retries + 1} "
+                            f"failed for {current_url}, retrying in {wait}s: {last_error}"
                         )
-                        if self.logger:
-                            self.logger.warning(f"Size mismatch for {url}: {last_error}")
-                        write_path.unlink(missing_ok=True)
-                        tmp_path.unlink(missing_ok=True)
-                    else:
-                        os.replace(str(write_path), str(tmp_path))
-                        if self.logger:
-                            self.logger.debug(f"Downloaded file from {url} -> {tmp_path}")
-                        return tmp_path
-
-            except aiohttp.ClientResponseError as e:
-                write_path.unlink(missing_ok=True)
-                tmp_path.unlink(missing_ok=True)
-                if 400 <= e.status < 500 and e.status != 429:
-                    raise
-                last_error = e
-
-            except Exception as e:
-                write_path.unlink(missing_ok=True)
-                tmp_path.unlink(missing_ok=True)
-                last_error = e
-
-            if attempt < max_retries:
-                wait = 2 ** attempt
-                if (
-                    isinstance(last_error, aiohttp.ClientResponseError)
-                    and last_error.status == 429
-                    and last_error.headers is not None
-                ):
-                    retry_after = last_error.headers.get("Retry-After")
-                    if retry_after is not None:
-                        try:
-                            wait = float(retry_after)
-                        except ValueError:
-                            pass
-                if self.logger:
-                    self.logger.warning(
-                        f"Download attempt {attempt + 1}/{max_retries + 1} "
-                        f"failed for {url}, retrying in {wait}s: {last_error}"
-                    )
-                await asyncio.sleep(wait)
+                    await asyncio.sleep(wait)
 
         raise last_error

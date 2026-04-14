@@ -42,16 +42,21 @@ class Downloader:
         """Download content from a Douyin URL."""
         if not self._client:
             raise RuntimeError("Downloader not initialized")
-        media_url = data.get("media_url")
-        if not media_url:
-            raise ValueError("Missing 'media_url' in download data")
-        cover_url: Optional[str] = data.get("media_cover")
+        media = data.get("media")
+        if not media:
+            raise ValueError("Missing 'media' in download data")
 
-        self.context.logger.debug(f"Starting download for media_url={media_url}, cover_url={cover_url}")
+        media_urls = [str(media.url)] + [str(u) for u in (media.url_fallbacks or [])]
+        cover_urls = (
+            [str(media.cover)] + [str(u) for u in (media.cover_fallbacks or [])]
+            if media.cover else []
+        )
 
-        tasks = [self._client.download_file(media_url, max_retries=self._max_retries)]
-        if cover_url:
-            tasks.append(self._client.download_file(cover_url, max_retries=self._max_retries))
+        self.context.logger.debug(f"Starting download for media_url={media.url}, cover_url={media.cover}")
+
+        tasks = [self._client.download_file(media_urls, max_retries=self._max_retries)]
+        if cover_urls:
+            tasks.append(self._client.download_file(cover_urls, max_retries=self._max_retries))
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         media_result = results[0]
@@ -59,7 +64,7 @@ class Downloader:
             raise media_result
         media_path: Optional[Path] = media_result
 
-        cover_result = results[1] if cover_url else None
+        cover_result = results[1] if cover_urls else None
         if isinstance(cover_result, BaseException):
             self.context.logger.warning(f"Cover download failed, skipping: {cover_result}")
             cover_result = None

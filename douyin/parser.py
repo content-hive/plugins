@@ -22,7 +22,7 @@ from .const import (
     PLATFORM_NAME,
     PLATFORM_URL,
 )
-from .utils import parse_cookie_string, extract_first_url, iter_gallery_items, pick_first_url
+from .utils import parse_cookie_string, extract_all_urls, extract_video_urls, extract_image_urls, iter_gallery_items
 
 from .api_client import DouyinAPIClient
 
@@ -126,51 +126,6 @@ class Parser:
         else:
             return []
     
-    def _extract_video_url(self, video: dict) -> Optional[str]:
-        """Extract the best video URL from a video dict.
-
-        Prefers the highest-quality stream from bit_rate entries; falls back to
-        play_addr.  Returns None when no playable URL is found.
-        """
-        bit_rates = video.get("bit_rate") or []
-
-        def score(stream: dict) -> tuple:
-            play = stream.get("play_addr") or {}
-            height = play.get("height") or 0
-            fps = stream.get("FPS", 0)
-            is_mp4 = 1 if stream.get("format") == "mp4" else 0
-            is_h265 = stream.get("is_h265", 0)
-            bitrate = stream.get("bit_rate", 0)
-
-            return (
-                height,    # higher resolution is better
-                fps,       # higher frame rate is better
-                is_mp4,    # prefer mp4 over dash (single file, no separate audio stream)
-                is_h265,   # H.265 offers better compression efficiency
-                bitrate,   # higher bitrate is better
-            )
-    
-        best_stream = None
-        if bit_rates:
-            valid_streams = [br for br in bit_rates if (br.get("play_addr") or {}).get("url_list")]
-            if valid_streams:
-                valid_streams.sort(key=score, reverse=True)
-                best_stream = valid_streams[0]
-
-        if best_stream:
-            play_addr = best_stream.get("play_addr") or {}
-        else:
-            play_addr = video.get("play_addr") or {}
-
-        url_list = [u for u in (play_addr.get("url_list") or []) if u]
-        if not url_list:
-            return None
-
-        if not best_stream:
-            url_list.sort(key=lambda u: 0 if "watermark=0" in u else 1)
-
-        return url_list[0]
-
     def _build_video_media(self, aweme: dict) -> list[ParserMediaInfo]:
         """Build a single-item list with the video's ParserMediaInfo."""
         video = aweme.get("video") or {}
@@ -178,18 +133,20 @@ class Parser:
         height = video.get("height")
         duration = video.get("duration")  # milliseconds
 
-        video_url = self._extract_video_url(video)
-        if not video_url:
+        video_urls = extract_video_urls(video)
+        if not video_urls:
             return []
 
-        cover_url = extract_first_url(video.get("origin_cover"))
+        cover_urls = extract_all_urls(video.get("origin_cover"))
 
         return [
             ParserMediaInfo(
-                url=HttpUrl(video_url),
+                url=HttpUrl(video_urls[0]),
+                url_fallbacks=[HttpUrl(u) for u in video_urls[1:]] or None,
                 type=MediaType.VIDEO,
                 title=None,
-                cover=HttpUrl(cover_url) if cover_url else None,
+                cover=HttpUrl(cover_urls[0]) if cover_urls else None,
+                cover_fallbacks=[HttpUrl(u) for u in cover_urls[1:]] or None,
                 duration=duration,
                 width=width,
                 height=height,
@@ -205,23 +162,22 @@ class Parser:
             if not isinstance(item, dict):
                 continue
 
-            image_url = pick_first_url(
-                item.get("url_list"),
-                item.get("download_url_list"),
-            )
-            if not image_url:
+            image_urls = extract_image_urls(item)
+            if not image_urls:
                 continue
 
             video = item.get("video") or {} if isinstance(item.get("video"), dict) else {}
-            video_url = self._extract_video_url(video)
+            video_urls = extract_video_urls(video)
 
-            if video_url:
+            if video_urls:
                 media_list.append(
                     ParserMediaInfo(
-                        url=HttpUrl(video_url),
+                        url=HttpUrl(video_urls[0]),
+                        url_fallbacks=[HttpUrl(u) for u in video_urls[1:]] or None,
                         type=MediaType.LIVEPHOTO,
                         title=None,
-                        cover=HttpUrl(image_url),
+                        cover=HttpUrl(image_urls[0]),
+                        cover_fallbacks=[HttpUrl(u) for u in image_urls[1:]] or None,
                         duration=video.get("duration"),
                         width=item.get("width"),
                         height=item.get("height"),
@@ -230,7 +186,8 @@ class Parser:
             else:
                 media_list.append(
                     ParserMediaInfo(
-                        url=HttpUrl(image_url),
+                        url=HttpUrl(image_urls[0]),
+                        url_fallbacks=[HttpUrl(u) for u in image_urls[1:]] or None,
                         type=MediaType.IMAGE,
                         title=None,
                         cover=None,

@@ -169,6 +169,7 @@ class DouyinAPIClient:
     async def ensure_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(
+                trust_env=True,
                 headers=self._headers,
                 cookies=self.cookies,
                 timeout=aiohttp.ClientTimeout(total=30),

@@ -212,11 +212,8 @@ class Parser:
             if not image_url:
                 continue
 
-            # Live photo: the gallery item embeds a short video clip
-            video_url = None
-            if item.get("live_photo_type") == 1:
-                video = item.get("video") or {} if isinstance(item.get("video"), dict) else {}
-                video_url = self._extract_video_url(video)
+            video = item.get("video") or {} if isinstance(item.get("video"), dict) else {}
+            video_url = self._extract_video_url(video)
 
             if video_url:
                 media_list.append(

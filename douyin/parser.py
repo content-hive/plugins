@@ -211,7 +211,7 @@ class Parser:
         return ParserAuthorInfo(
             uid=uid,
             name=nickname or None,
-            username= unique_id or short_id or uid,
+            username=unique_id or short_id or uid,
             avatar=avatar_url or None,
             url=profile_url,
             banner=None,

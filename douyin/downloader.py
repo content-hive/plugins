@@ -46,13 +46,13 @@ class Downloader:
         if not media:
             raise ValueError("Missing 'media' in download data")
 
-        media_urls = [str(media.url)] + [str(u) for u in (media.url_fallbacks or [])]
+        media_urls = [media["url"]] + [u for u in (media.get("url_fallbacks") or [])]
         cover_urls = (
-            [str(media.cover)] + [str(u) for u in (media.cover_fallbacks or [])]
-            if media.cover else []
+            [media["cover"]] + [u for u in (media.get("cover_fallbacks") or [])]
+            if media.get("cover") else []
         )
 
-        self.context.logger.debug(f"Starting download for media_url={media.url}, cover_url={media.cover}")
+        self.context.logger.debug(f"Starting download for media_url={media['url']}, cover_url={media.get('cover')}")
 
         tasks = [self._client.download_file(media_urls, max_retries=self._max_retries)]
         if cover_urls:

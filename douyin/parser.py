@@ -125,18 +125,13 @@ class Parser:
             return self._build_gallery_media(aweme)
         else:
             return []
+    
+    def _extract_video_url(self, video: dict) -> Optional[str]:
+        """Extract the best video URL from a video dict.
 
-    def _build_video_media(self, aweme: dict) -> list[ParserMediaInfo]:
-        """Build a single-item list with the video's ParserMediaInfo."""
-        if not self._client:
-            raise RuntimeError("Parser not initialized")
-        
-        video = aweme.get("video") or {}
-        width = video.get("width")
-        height = video.get("height")
-        duration = video.get("duration")  # milliseconds
-
-
+        Prefers the highest-quality stream from bit_rate entries; falls back to
+        play_addr.  Returns None when no playable URL is found.
+        """
         bit_rates = video.get("bit_rate") or []
 
         def score(stream: dict) -> tuple:
@@ -154,33 +149,39 @@ class Parser:
                 is_h265,   # H.265 offers better compression efficiency
                 bitrate,   # higher bitrate is better
             )
-        
+    
         best_stream = None
         if bit_rates:
             valid_streams = [br for br in bit_rates if (br.get("play_addr") or {}).get("url_list")]
-
             if valid_streams:
                 valid_streams.sort(key=score, reverse=True)
                 best_stream = valid_streams[0]
 
-        if not best_stream:
+        if best_stream:
+            play_addr = best_stream.get("play_addr") or {}
+        else:
             play_addr = video.get("play_addr") or {}
-            url_list = [u for u in (play_addr.get("url_list") or []) if u]
-            if not url_list:
-                return []
 
+        url_list = [u for u in (play_addr.get("url_list") or []) if u]
+        if not url_list:
+            return None
+
+        if not best_stream:
             url_list.sort(key=lambda u: 0 if "watermark=0" in u else 1)
 
-            video_url = url_list[0]
-        else:
-            play_addr = best_stream.get("play_addr") or {}
-            url_list = [u for u in (play_addr.get("url_list") or []) if u]
+        return url_list[0]
 
-            if not url_list:
-                return []
+    def _build_video_media(self, aweme: dict) -> list[ParserMediaInfo]:
+        """Build a single-item list with the video's ParserMediaInfo."""
+        video = aweme.get("video") or {}
+        width = video.get("width")
+        height = video.get("height")
+        duration = video.get("duration")  # milliseconds
 
-            video_url = url_list[0]
-        
+        video_url = self._extract_video_url(video)
+        if not video_url:
+            return []
+
         cover_url = extract_first_url(video.get("origin_cover"))
 
         return [
@@ -205,31 +206,26 @@ class Parser:
                 continue
 
             image_url = pick_first_url(
-                item.get("download_url"),
-                item.get("download_addr"),
-                item.get("display_image"),
-                item.get("owner_watermark_image"),
+                item.get("url_list"),
+                item.get("download_url_list"),
             )
             if not image_url:
                 continue
 
             # Live photo: the gallery item embeds a short video clip
-            video = item.get("video") if isinstance(item.get("video"), dict) else {}
-            live_url = pick_first_url(
-                video.get("play_addr"),
-                video.get("download_addr"),
-                item.get("video_play_addr"),
-                item.get("video_download_addr"),
-            )
+            video_url = None
+            if item.get("live_photo_type") == 1:
+                video = item.get("video") or {} if isinstance(item.get("video"), dict) else {}
+                video_url = self._extract_video_url(video)
 
-            if live_url:
+            if video_url:
                 media_list.append(
                     ParserMediaInfo(
-                        url=HttpUrl(live_url),
+                        url=HttpUrl(video_url),
                         type=MediaType.LIVEPHOTO,
                         title=None,
                         cover=HttpUrl(image_url),
-                        duration=None,
+                        duration=video.get("duration"),
                         width=item.get("width"),
                         height=item.get("height"),
                     )

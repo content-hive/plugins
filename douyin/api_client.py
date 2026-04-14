@@ -337,7 +337,7 @@ class DouyinAPIClient:
         self,
         url: str | list[str],
         max_retries: int = 3,
-    ) -> Optional[Path]:
+    ) -> Path:
         """Download a file to the system temp directory and return its path.
 
         Accepts a single URL or a list of URLs. Each URL is tried with exponential

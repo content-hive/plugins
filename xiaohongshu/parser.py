@@ -7,15 +7,13 @@ from typing import Optional
 from urllib.parse import urlencode
 
 import aiohttp
-from pydantic import HttpUrl
-from contenthive.models.parser import (
-    ParserResult,
-    ParserMediaInfo,
-    ParserAuthorInfo, 
-    ParserPlatformInfo
-)
-from contenthive.models.enumerates import MediaType, ParserResultStatus
+
 from contenthive.plugins.context import PluginContext
+from contenthive.plugins.contracts import (
+    MediaType, ParserResultStatus,
+    ParserAuthorInfo, ParserMediaInfo, ParserPlatformInfo, ParserResult,
+)
+
 from .const import (
     DOMAIN,
     IMAGE_CDN_URL,
@@ -168,10 +166,10 @@ class XiaohongshuParser:
                 vid_info = self._extract_video_info(img.get("stream", {}))
                 if vid_info:
                     media_list.append(ParserMediaInfo(
-                        url=HttpUrl(vid_info["url"]),
+                        url=vid_info["url"],
                         type=MediaType.LIVEPHOTO,
                         title=None,
-                        cover=HttpUrl(img_url),
+                        cover=img_url,
                         duration=vid_info.get("duration"),
                         width=img.get("width"),
                         height=img.get("height")
@@ -179,7 +177,7 @@ class XiaohongshuParser:
             else:
                 # Normal image
                 media_list.append(ParserMediaInfo(
-                    url=HttpUrl(img_url),
+                    url=img_url,
                     type=MediaType.IMAGE,
                     title=None,
                     cover=None,
@@ -198,10 +196,10 @@ class XiaohongshuParser:
             cover_url = self._get_img_url_by_trace_id(cover_id) if cover_id else None
 
             media_list.append(ParserMediaInfo(
-                url=HttpUrl(vid_info["url"]),
+                url=vid_info["url"],
                 type=MediaType.VIDEO,
                 title=None,
-                cover=HttpUrl(cover_url) if cover_url else None,
+                cover=cover_url,
                 duration=vid_info.get("duration"),
                 width=vid_info.get("width"),
                 height=vid_info.get("height")
@@ -262,9 +260,9 @@ class XiaohongshuParser:
             uid=user_id,
             name=name,
             username=red_id or user_id,
-            avatar=HttpUrl(avatar) if avatar else None,
-            url=HttpUrl(profile_url),
-            banner=HttpUrl(banner) if banner else None,
+            avatar=avatar or None,
+            url=profile_url,
+            banner=banner or None,
             description=description
         )
 
@@ -277,8 +275,8 @@ class XiaohongshuParser:
         return ParserPlatformInfo(
             code=PLATFORM_CODE,
             name=PLATFORM_NAME,
-            url=HttpUrl(PLATFORM_URL),
-            icon_url=HttpUrl(PLATFORM_ICON)
+            url=PLATFORM_URL,
+            icon_url=PLATFORM_ICON,
         )
 
     async def parse(self, data: dict) -> ParserResult:
@@ -315,7 +313,7 @@ class XiaohongshuParser:
 
             return ParserResult(
                 pid=note_id,
-                url=HttpUrl(url),
+                url=url,
                 title=title,
                 content=content,
                 media=self._parse_media(note),

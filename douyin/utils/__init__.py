@@ -18,7 +18,7 @@ def parse_cookie_string(raw: str) -> dict[str, str]:
 
 def serialize_cookie_dict(cookies: dict[str, str]) -> str:
     """Serialize a cookie dict back to a browser cookie string (e.g. 'k1=v1; k2=v2')."""
-    return "; ".join(f"{k}={v}" for k, v in cookies.items() if k and v)
+    return "; ".join(f"{k}={v}" for k, v in cookies.items() if k)
 
 
 def extract_all_urls(source: Any) -> list[str]:

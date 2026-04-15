@@ -52,7 +52,7 @@ class Parser:
         raw_cookies = (self.entry.data or {}).get("cookies", "")
         cookies = parse_cookie_string(raw_cookies)
 
-        def _on_cookies_updated(updated: dict) -> None:
+        def _on_cookies_updated(updated: dict[str, str]) -> None:
             if self.context.save_config:
                 self.context.save_config(DOMAIN, "cookies", serialize_cookie_dict(updated))
                 self.context.logger.debug(f"{DOMAIN} cookies persisted")

@@ -189,27 +189,28 @@ class DouyinAPIClient:
             self._session = None
 
     def _sync_session_cookies(self) -> None:
-        """Sync all cookies from the session jar into self.cookies and notify if changed."""
+        """Sync cookies from the session jar into self.cookies, including removals."""
         if not self._session or self._session.closed:
             return
-        updated = False
-        for morsel in self._session.cookie_jar:
-            key = morsel.key
-            value = morsel.value
-            if value and self.cookies.get(key) != value:
-                self.cookies[key] = value
-                updated = True
-        if updated:
+
+        session_cookies: Dict[str, str] = {
+            morsel.key: morsel.value
+            for morsel in self._session.cookie_jar
+            if morsel.value
+        }
+
+        if self.cookies != session_cookies:
+            self.cookies = session_cookies
             self._notify_cookies_updated()
 
     def _notify_cookies_updated(self) -> None:
         """Fire the on_cookies_updated callback if one is registered."""
         if self._on_cookies_updated:
             try:
-                self._on_cookies_updated(self.cookies)
-            except Exception:
+                self._on_cookies_updated(dict(self.cookies))
+            except Exception as e:
                 if self.logger:
-                    self.logger.warning("Failed to persist updated cookies")
+                    self.logger.warning(f"Failed to persist updated cookies to config: {e}")
 
     async def _ensure_ms_token(self) -> str:
         if self._ms_token:

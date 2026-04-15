@@ -17,7 +17,7 @@ import urllib.request
 from http.cookies import SimpleCookie
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
 import aiofiles
@@ -147,9 +147,15 @@ class DouyinAPIClient:
 
     _DETAIL_AIDS = ("6383", "1128")
 
-    def __init__(self, cookies: Dict[str, str], logger: Optional[Any] = None):
+    def __init__(
+        self,
+        cookies: Dict[str, str],
+        logger: Optional[Any] = None,
+        on_cookies_updated: Optional[Callable[[Dict[str, str]], None]] = None,
+    ):
         self.logger = logger
         self.cookies: Dict[str, str] = dict(cookies or {})
+        self._on_cookies_updated = on_cookies_updated
         self._session: Optional[aiohttp.ClientSession] = None
         self._headers = REQUEST_HEADERS
         self._signer = XBogus(user_agent=USER_AGENT)
@@ -181,6 +187,29 @@ class DouyinAPIClient:
         if self._session and not self._session.closed:
             await self._session.close()
             self._session = None
+
+    def _sync_session_cookies(self) -> None:
+        """Sync all cookies from the session jar into self.cookies and notify if changed."""
+        if not self._session or self._session.closed:
+            return
+        updated = False
+        for morsel in self._session.cookie_jar:
+            key = morsel.key
+            value = morsel.value
+            if value and self.cookies.get(key) != value:
+                self.cookies[key] = value
+                updated = True
+        if updated:
+            self._notify_cookies_updated()
+
+    def _notify_cookies_updated(self) -> None:
+        """Fire the on_cookies_updated callback if one is registered."""
+        if self._on_cookies_updated:
+            try:
+                self._on_cookies_updated(self.cookies)
+            except Exception:
+                if self.logger:
+                    self.logger.warning("Failed to persist updated cookies")
 
     async def _ensure_ms_token(self) -> str:
         if self._ms_token:
@@ -280,6 +309,7 @@ class DouyinAPIClient:
                 ) as response:
                     if response.status == 200:
                         data = await response.json(content_type=None)
+                        self._sync_session_cookies()
                         return data if isinstance(data, dict) else {}
                     # 4xx (except 429) are not retryable
                     if response.status < 500 and response.status != 429:

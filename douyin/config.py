@@ -6,6 +6,7 @@ from contenthive.plugins.contracts import PluginConfigSchema
 
 class ConfigSchema(PluginConfigSchema):
     cookies: str = Field(
+        default="",
         title="Cookies",
         description="抖音账号的 Cookie 字符串，用于访问需要登录的内容",
         json_schema_extra={"secret": True},

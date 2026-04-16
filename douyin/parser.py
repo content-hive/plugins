@@ -85,7 +85,7 @@ class Parser:
             self.context.logger.exception(f"Failed to parse {url}")
             raise
 
-    
+
     def _build_result(self, url: str, aweme: dict) -> ParserResult:
         """Assemble a complete ParserResult from a raw aweme dict."""
         return ParserResult(

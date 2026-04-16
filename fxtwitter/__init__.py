@@ -8,7 +8,7 @@ from contenthive.plugins.context import PluginContext
 from .const import DOMAIN
 
 
-async def async_setup(context: PluginContext, config: dict) -> bool:
+async def async_setup(context: PluginContext) -> bool:
     """
     Set up the FXTwitter plugin.
     

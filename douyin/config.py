@@ -14,7 +14,7 @@ class ConfigSchema(PluginConfigSchema):
     download_max_retries: int = Field(
         default=3,
         title="下载重试次数",
-        description="下载失败时的最大重试次数",
+        description="下载失败时的重试次数",
     )
 
 

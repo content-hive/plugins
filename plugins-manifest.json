@@ -42,6 +42,20 @@
       "path": "douyin",
       "enabled": true,
       "disclaimer": "本插件通过解析抖音链接获取内容，需要配置账号 Cookie 以访问受保护内容，存在账号被封禁的风险。使用前请确保符合抖音服务条款及当地法律法规，并自行承担相关风险。平台规则变更可能导致插件失效。"
+    },
+    {
+      "domain": "twitter",
+      "name": "X(Twitter)",
+      "version": "0.1.0",
+      "description": "适用于 Content Hive 的 X(Twitter) 内容解析插件，通过抓取推文页面并提取嵌入的页面状态来获取内容。",
+      "author": [
+        "content-hive"
+      ],
+      "requirements": [],
+      "config_flow": false,
+      "path": "twitter",
+      "enabled": true,
+      "disclaimer": "本插件通过抓取 X(Twitter) 网页获取内容，使用前请确保符合 X 服务条款及当地法律法规。平台规则变更可能导致插件失效。"
     }
   ]
 }

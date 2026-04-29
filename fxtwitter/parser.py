@@ -2,17 +2,13 @@
 
 import re
 from typing import Any, Optional
-from pydantic import HttpUrl
 import aiohttp
 
-from contenthive.models.parser import (
-    ParserResult,
-    ParserMediaInfo,
-    ParserAuthorInfo,
-    ParserPlatformInfo
-)
-from contenthive.models.enumerates import MediaType, ParserResultStatus
 from contenthive.plugins.context import PluginContext
+from contenthive.plugins.contracts import (
+    MediaType, ParserResultStatus,
+    ParserAuthorInfo, ParserMediaInfo, ParserPlatformInfo, ParserResult,
+)
 
 from .const import (
     DOMAIN,
@@ -115,7 +111,7 @@ class FXTwitterParser:
         """Build ParserResult from tweet data."""
         return ParserResult(
             pid=tweet['id'],
-            url=HttpUrl(url),
+            url=url,
             title=None,
             content=tweet['text'],
             media=self._parse_media(tweet),
@@ -136,7 +132,7 @@ class FXTwitterParser:
             item_type = item.get('type')
             if item_type == 'photo':
                 media_list.append(ParserMediaInfo(
-                    url=HttpUrl(item['url']),
+                    url=item['url'],
                     type=MediaType.IMAGE,
                     title=None,
                     cover=None,
@@ -151,20 +147,20 @@ class FXTwitterParser:
                 else:
                     duration_ms = None
                 media_list.append(ParserMediaInfo(
-                    url=HttpUrl(item['url']),
+                    url=item['url'],
                     type=MediaType.VIDEO,
                     title=None,
-                    cover=HttpUrl(item['thumbnail_url']) if item.get('thumbnail_url') else None,
+                    cover=item.get('thumbnail_url') or None,
                     duration=duration_ms,
                     width=item.get('width'),
                     height=item.get('height')
                 ))
             elif item_type == 'gif':
                 media_list.append(ParserMediaInfo(
-                    url=HttpUrl(item['url']),
+                    url=item['url'],
                     type=MediaType.GIF,
                     title=None,
-                    cover=HttpUrl(item['thumbnail_url']) if item.get('thumbnail_url') else None,
+                    cover=item.get('thumbnail_url') or None,
                     duration=None,
                     width=item.get('width'),
                     height=item.get('height')
@@ -180,9 +176,9 @@ class FXTwitterParser:
             uid=author_data['id'],
             name=author_data['name'],
             username=author_data['screen_name'],
-            avatar=HttpUrl(author_data['avatar_url']),
-            url=HttpUrl(author_data['url']),
-            banner=HttpUrl(author_data['banner_url']) if author_data.get('banner_url') else None,
+            avatar=author_data['avatar_url'],
+            url=author_data['url'],
+            banner=author_data.get('banner_url') or None,
             description=author_data.get('description')
         )
     
@@ -191,8 +187,8 @@ class FXTwitterParser:
         return ParserPlatformInfo(
             code=PLATFORM_CODE,
             name=PLATFORM_NAME,
-            url=HttpUrl(PLATFORM_URL),
-            icon_url=HttpUrl(PLATFORM_ICON)
+            url=PLATFORM_URL,
+            icon_url=PLATFORM_ICON,
         )
     
     async def async_will_remove(self):

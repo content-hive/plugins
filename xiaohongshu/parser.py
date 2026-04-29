@@ -7,15 +7,13 @@ from typing import Optional
 from urllib.parse import urlencode
 
 import aiohttp
-from pydantic import HttpUrl
-from contenthive.models.parser import (
-    ParserResult,
-    ParserMediaInfo,
-    ParserAuthorInfo, 
-    ParserPlatformInfo
-)
-from contenthive.models.enumerates import MediaType, ParserResultStatus
+
 from contenthive.plugins.context import PluginContext
+from contenthive.plugins.contracts import (
+    MediaType, ParserResultStatus,
+    ParserAuthorInfo, ParserMediaInfo, ParserPlatformInfo, ParserResult,
+)
+
 from .const import (
     DOMAIN,
     IMAGE_CDN_URL,
@@ -156,62 +154,57 @@ class XiaohongshuParser:
             List of ParserMediaInfo objects.
         """
         media_list = []
-        note_type = note.get("type", "normal")
 
-        if note_type == "video":
-            # Video note: imageList[0] is cover, video is in note.video.media.stream
-            cover_img = (note.get("imageList") or [{}])[0]
-            cover_trace_id = cover_img.get("traceId") or cover_img.get("fileId")
-            cover_url = self._get_img_url_by_trace_id(cover_trace_id) if cover_trace_id else None
-
-            stream = (
-                note.get("video", {})
-                    .get("media", {})
-                    .get("stream", {})
-            )
-            vid_info = self._extract_video_info(stream)
-            if vid_info:
-                media_list.append(ParserMediaInfo(
-                    url=HttpUrl(vid_info["url"]),
-                    type=MediaType.VIDEO,
-                    title=None,
-                    cover=HttpUrl(cover_url) if cover_url else None,
-                    duration=vid_info.get("duration"),
-                    width=vid_info.get("width"),
-                    height=vid_info.get("height")
-                ))
-        else:
-            # Image note: iterate imageList, distinguish normal image and live photo
-            for img in note.get("imageList", []):
-                img_trace_id = img.get("traceId") or img.get("fileId")
-                img_url = self._get_img_url_by_trace_id(img_trace_id) if img_trace_id else None
-                if not img_url:
-                    continue
-                if img.get("livePhoto", False):
-                    # Live photo: video in stream, cover is image
-                    vid_info = self._extract_video_info(img.get("stream", {}))
-                    if vid_info:
-                        media_list.append(ParserMediaInfo(
-                            url=HttpUrl(vid_info["url"]),
-                            type=MediaType.LIVEPHOTO,
-                            title=None,
-                            cover=HttpUrl(img_url),
-                            duration=vid_info.get("duration"),
-                            width=img.get("width"),
-                            height=img.get("height")
-                        ))
-                else:
-                    # Normal image
+        images = note.get("imageList", [])
+        for img in images:
+            img_id = img.get("traceId") or img.get("fileId")
+            img_url = self._get_img_url_by_trace_id(img_id) if img_id else None
+            if not img_url:
+                continue
+            if img.get("livePhoto", False):
+                # Live photo: video in stream, cover is image
+                vid_info = self._extract_video_info(img.get("stream", {}))
+                if vid_info:
                     media_list.append(ParserMediaInfo(
-                        url=HttpUrl(img_url),
-                        type=MediaType.IMAGE,
+                        url=vid_info["url"],
+                        type=MediaType.LIVEPHOTO,
                         title=None,
-                        cover=None,
-                        duration=None,
+                        cover=img_url,
+                        duration=vid_info.get("duration"),
                         width=img.get("width"),
                         height=img.get("height")
                     ))
+            else:
+                # Normal image
+                media_list.append(ParserMediaInfo(
+                    url=img_url,
+                    type=MediaType.IMAGE,
+                    title=None,
+                    cover=None,
+                    duration=None,
+                    width=img.get("width"),
+                    height=img.get("height")
+                ))
 
+        video = note.get("video", {})
+        video_stream = video.get("media", {}).get("stream", {})
+        vid_info = self._extract_video_info(video_stream)
+        if vid_info:
+            cover_image = video.get("image", {})
+            first_image = images[0] if images else {}
+            cover_id = cover_image.get("firstFrameFileid") or first_image.get("traceId") or first_image.get("fileId")
+            cover_url = self._get_img_url_by_trace_id(cover_id) if cover_id else None
+
+            media_list.append(ParserMediaInfo(
+                url=vid_info["url"],
+                type=MediaType.VIDEO,
+                title=None,
+                cover=cover_url,
+                duration=vid_info.get("duration"),
+                width=vid_info.get("width"),
+                height=vid_info.get("height")
+            ))
+        
         return media_list
 
     async def _parse_author(self, note: dict, xsec_token: str = "") -> ParserAuthorInfo:
@@ -267,9 +260,9 @@ class XiaohongshuParser:
             uid=user_id,
             name=name,
             username=red_id or user_id,
-            avatar=HttpUrl(avatar) if avatar else None,
-            url=HttpUrl(profile_url),
-            banner=HttpUrl(banner) if banner else None,
+            avatar=avatar or None,
+            url=profile_url,
+            banner=banner or None,
             description=description
         )
 
@@ -282,8 +275,8 @@ class XiaohongshuParser:
         return ParserPlatformInfo(
             code=PLATFORM_CODE,
             name=PLATFORM_NAME,
-            url=HttpUrl(PLATFORM_URL),
-            icon_url=HttpUrl(PLATFORM_ICON)
+            url=PLATFORM_URL,
+            icon_url=PLATFORM_ICON,
         )
 
     async def parse(self, data: dict) -> ParserResult:
@@ -320,7 +313,7 @@ class XiaohongshuParser:
 
             return ParserResult(
                 pid=note_id,
-                url=HttpUrl(url),
+                url=url,
                 title=title,
                 content=content,
                 media=self._parse_media(note),

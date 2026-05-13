@@ -26,10 +26,10 @@ REQUEST_HEADERS = {
 JS_INVALID_TOKENS = r"\b(?:undefined|NaN|Infinity)\b"
 
 IMAGE_CDN_URL = "https://sns-img-bd.xhscdn.com"
-VIDEO_CDN_URL = "https://sns-bak-v8.xhscdn.com"
+VIDEO_CDN_URL = "https://sns-video-bd.xhscdn.com"
 VIDEO_FALLBACK_CDNS = [
     "https://sns-video-qc.xhscdn.com",
     "https://sns-video-hw.xhscdn.com",
-    "https://sns-video-bd.xhscdn.com",
     "https://sns-video-qn.xhscdn.com",
+    "https://sns-bak-v8.xhscdn.com",
 ]

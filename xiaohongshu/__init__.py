@@ -1,4 +1,3 @@
-
 """
 Xiaohongshu Parser Plugin for ContentHive
 Parses Xiaohongshu (Little Red Book) content for ContentHive.
@@ -12,7 +11,7 @@ from .const import DOMAIN
 async def async_setup(context: PluginContext) -> bool:
     """
     Called when the plugin is first loaded.
-    
+
     Args:
         context: PluginContext instance
         config: Plugin configuration dictionary
@@ -27,7 +26,7 @@ async def async_setup_entry(context: PluginContext, entry):
     """
     Called when a configuration entry is added.
     Loads the parser platform.
-    
+
     Args:
         context: PluginContext instance
         entry: PluginEntryData with entry_id, domain, and data
@@ -44,7 +43,7 @@ async def async_unload_entry(context: PluginContext, entry):
     """
     Called when a configuration entry is removed.
     Unloads the parser platform.
-    
+
     Args:
         context: PluginContext instance
         entry: PluginEntryData being unloaded

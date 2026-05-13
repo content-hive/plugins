@@ -47,7 +47,7 @@
       "domain": "twitter",
       "name": "X(Twitter)",
       "version": "0.1.0",
-      "description": "适用于 Content Hive 的 X(Twitter) 内容解析插件，通过抓取推文页面并提取嵌入的页面状态来获取内容。",
+      "description": "An X(Twitter) content parsing plugin for Content Hive. Fetches tweet content, images, videos, and author information via the GraphQL API, with automatic fallback to the Syndication API under rate limiting.",
       "author": [
         "content-hive"
       ],
@@ -55,7 +55,7 @@
       "config_flow": false,
       "path": "twitter",
       "enabled": true,
-      "disclaimer": "本插件通过抓取 X(Twitter) 网页获取内容，使用前请确保符合 X 服务条款及当地法律法规。平台规则变更可能导致插件失效。"
+      "disclaimer": "This plugin fetches content via X(Twitter) public APIs. Please ensure compliance with X's Terms of Service and applicable local laws before use. Platform policy changes may cause the plugin to stop working."
     }
   ]
 }

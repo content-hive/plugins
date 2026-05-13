@@ -30,6 +30,7 @@ from .const import (
     STREAM_CODEC_PRIORITY,
     URL_PATTERN,
     VIDEO_CDN_URL,
+    VIDEO_FALLBACK_CDNS,
 )
 
 
@@ -115,10 +116,10 @@ class XiaohongshuParser:
             for entry in entries:
                 url = entry.get("masterUrl")
                 if url:
-                    url = self._strip_url_query(url)
-                    url = re.sub(r"^https?://[^/]+", VIDEO_CDN_URL, url)
+                    path = re.sub(r"^https?://[^/]+", "", self._strip_url_query(url))
                     return {
-                        "url": url,
+                        "url": VIDEO_CDN_URL + path,
+                        "url_fallbacks": [cdn + path for cdn in VIDEO_FALLBACK_CDNS],
                         "duration": entry.get("duration"),
                         "width": entry.get("width"),
                         "height": entry.get("height"),
@@ -136,7 +137,7 @@ class XiaohongshuParser:
         """
         return url.split("?", 1)[0].split("#", 1)[0]
 
-    def _get_img_url_by_trace_id(self, trace_id: str) -> str | None:
+    def _get_img_url_by_trace_id(self, trace_id: str) -> str:
         """Construct image URL from traceId.
 
         Args:
@@ -171,6 +172,7 @@ class XiaohongshuParser:
                     media_list.append(
                         ParserMediaInfo(
                             url=vid_info["url"],
+                            url_fallbacks=vid_info.get("url_fallbacks"),
                             type=MediaType.LIVEPHOTO,
                             title=None,
                             cover=img_url,
@@ -205,6 +207,7 @@ class XiaohongshuParser:
             media_list.append(
                 ParserMediaInfo(
                     url=vid_info["url"],
+                    url_fallbacks=vid_info.get("url_fallbacks"),
                     type=MediaType.VIDEO,
                     title=None,
                     cover=cover_url,

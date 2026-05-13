@@ -108,7 +108,7 @@ class XiaohongshuParser:
             stream: Stream dict containing codec keys (h264, h265, h266, av1).
 
         Returns:
-            Video information dict with keys 'url', 'duration', 'width', 'height',
+            Video information dict with keys 'url', 'url_fallbacks', 'duration', 'width', 'height',
             or None if no valid stream entry is found.
         """
         for codec in STREAM_CODEC_PRIORITY:

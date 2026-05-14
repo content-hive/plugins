@@ -12,3 +12,8 @@ def parse_cookie_string(raw: str) -> dict[str, str]:
             key, _, value = part.partition("=")
             result[key.strip()] = value.strip()
     return result
+
+
+def serialize_cookie_dict(cookies: dict[str, str]) -> str:
+    """Serialize a cookie dict back to a browser cookie string."""
+    return "; ".join(f"{k}={v}" for k, v in cookies.items() if k)

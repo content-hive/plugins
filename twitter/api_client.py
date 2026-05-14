@@ -1,6 +1,7 @@
 """Twitter GraphQL API client."""
 
 import json
+from collections.abc import Callable
 from urllib.parse import urlencode
 
 import aiohttp
@@ -33,13 +34,19 @@ class TwitterUnavailableError(TwitterAPIError):
 class TwitterAPIClient:
     """Handles authentication and GraphQL requests against the X/Twitter API."""
 
-    def __init__(self, logger, cookies: dict[str, str] | None = None):
+    def __init__(
+        self,
+        logger,
+        cookies: dict[str, str] | None = None,
+        on_cookies_updated: Callable[[dict[str, str]], None] | None = None,
+    ):
         self._logger = logger
         self._cookies: dict[str, str] = dict(cookies or {})
         self._session: aiohttp.ClientSession | None = None
         self._guest_token: str | None = None
         # ct0 from user cookies takes priority over the one from activate.json
         self._csrf_token: str | None = self._cookies.get("ct0") or None
+        self._on_cookies_updated = on_cookies_updated
 
     @property
     def _active_session(self) -> aiohttp.ClientSession:
@@ -62,6 +69,23 @@ class TwitterAPIClient:
             await self._session.close()
             self._session = None
             self._logger.info(f"{DOMAIN} API client session closed")
+
+    def _sync_session_cookies(self) -> None:
+        """Sync cookies from the session jar into self._cookies; fire callback if changed."""
+        if not self._session or self._session.closed:
+            return
+        session_cookies = {m.key: m.value for m in self._session.cookie_jar if m.value}
+        if self._cookies != session_cookies:
+            self._cookies = session_cookies
+            self._csrf_token = session_cookies.get("ct0") or self._csrf_token
+            self._notify_cookies_updated()
+
+    def _notify_cookies_updated(self) -> None:
+        if self._on_cookies_updated:
+            try:
+                self._on_cookies_updated(dict(self._cookies))
+            except Exception as e:
+                self._logger.warning(f"{DOMAIN}: failed to persist updated cookies: {e}")
 
     def _api_headers(self, guest_token: str | None = None) -> dict:
         """Build API request headers with Bearer auth and optional guest/CSRF tokens."""
@@ -93,6 +117,7 @@ class TwitterAPIClient:
             raise TwitterAuthError("No guest_token in activate.json response")
         self._guest_token = token
         self._logger.debug(f"{DOMAIN}: obtained guest token, csrf_token={'yes' if self._csrf_token else 'no'}")
+        self._sync_session_cookies()
         return token
 
     def _resolve_tweet_result(self, data: dict) -> dict:
@@ -174,6 +199,8 @@ class TwitterAPIClient:
             raise_for_status=True,
         ) as resp:
             data = await resp.json(content_type=None)
+
+        self._sync_session_cookies()
 
         errors = data.get("errors") or []
         if errors:

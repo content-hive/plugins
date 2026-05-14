@@ -1,6 +1,6 @@
 """
 Twitter Parser Plugin for ContentHive
-Parses X(Twitter) content for ContentHive by scraping tweet pages.
+Parses X(Twitter) content for ContentHive using the GraphQL API client.
 """
 
 from typing import cast

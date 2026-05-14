@@ -218,7 +218,3 @@ class TwitterParser:
         except Exception as e:
             self.context.logger.exception(f"Failed to parse {url}")
             raise Exception(f"Failed to parse Twitter URL: {e}") from e
-
-    async def async_will_remove(self):
-        """Clean up resources when removing parser."""
-        await self._client.async_teardown()

@@ -196,8 +196,15 @@ class TwitterAPIClient:
         async with self._active_session.get(
             url,
             headers=self._api_headers(guest_token=self._guest_token),
-            raise_for_status=True,
         ) as resp:
+            if resp.status in (401, 403):
+                body = await resp.text()
+                raise TwitterAuthError(f"Authentication failed: HTTP {resp.status} — {body[:200]}")
+            if resp.status == 503:
+                raise TwitterAPIError(f"Twitter service unavailable: HTTP {resp.status}")
+            if resp.status != 200:
+                body = await resp.text()
+                raise TwitterAPIError(f"Unexpected HTTP {resp.status} — {body[:200]}")
             data = await resp.json(content_type=None)
 
         self._sync_session_cookies()

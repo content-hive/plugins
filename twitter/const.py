@@ -26,7 +26,6 @@ AVATAR_HQ_SUFFIX = "_400x400"
 # API endpoints
 API_BASE = "https://api.x.com/1.1/"
 GRAPHQL_API_BASE = "https://x.com/i/api/graphql/"
-SYNDICATION_API_URL = "https://cdn.syndication.twimg.com/tweet-result"
 
 # GraphQL tweet query endpoint ID (from yt-dlp)
 GRAPHQL_ENDPOINT = "2ICDjqPd81tulZcYrtpTuQ/TweetResultByRestId"

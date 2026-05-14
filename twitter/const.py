@@ -13,16 +13,11 @@ PLATFORM_ICON = "https://raw.githubusercontent.com/content-hive/assets/main/Icon
 # query parameters, and path suffixes (e.g. /photo/1).
 URL_PATTERN = r"https?://(www\.)?(twitter\.com|x\.com)/.+/status/(\d+)"
 
-# Request headers — desktop Chrome UA to avoid App Store redirects
-# that mobile UAs can trigger on some Twitter configurations.
-REQUEST_HEADERS = {
-    "user-agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "accept-language": "en-US,en;q=0.9",
-}
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
 
 # Avatar image size suffix to replace for higher-resolution profile images.
 AVATAR_NORMAL_SUFFIX = "_normal"
@@ -37,10 +32,19 @@ SYNDICATION_API_URL = "https://cdn.syndication.twimg.com/tweet-result"
 GRAPHQL_ENDPOINT = "2ICDjqPd81tulZcYrtpTuQ/TweetResultByRestId"
 
 # Public Bearer token used by the Twitter web client (same token as yt-dlp)
-AUTH_TOKEN = (
-    "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D"
-    "1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
-)
+AUTH_TOKEN = "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
+
+# GraphQL variable defaults for TweetResultByRestId
+GRAPHQL_VARIABLES_DEFAULTS = {
+    "withCommunity": False,
+    "includePromotedContent": False,
+    "withVoice": False,
+}
+
+# GraphQL field toggles for TweetResultByRestId
+GRAPHQL_FIELD_TOGGLES = {
+    "withArticleRichContentState": False,
+}
 
 # GraphQL feature flags required by the TweetResultByRestId endpoint
 GRAPHQL_FEATURES = {

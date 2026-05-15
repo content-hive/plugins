@@ -196,6 +196,17 @@ class JikeParser:
                 )
             )
 
+        link_info = post.get("linkInfo")
+        if link_info and link_info.get("linkUrl"):
+            media_list.append(
+                ParserMediaInfo(
+                    url=link_info["linkUrl"],
+                    type=MediaType.LINK,
+                    title=link_info.get("title"),
+                    cover=link_info.get("pictureUrl"),
+                )
+            )
+
         return media_list
 
     def _parse_author(self, post: dict) -> ParserAuthorInfo:
@@ -228,22 +239,6 @@ class JikeParser:
             description=description,
         )
 
-    def _parse_content(self, post: dict) -> str:
-        """Assemble post content, appending linkInfo as a Markdown link if present.
-
-        Args:
-            post: Post dict from pageProps.post.
-
-        Returns:
-            Content string with optional link appended.
-        """
-        content = post.get("content") or ""
-        link_info = post.get("linkInfo")
-        if link_info and link_info.get("linkUrl"):
-            link_title = link_info.get("title") or link_info["linkUrl"]
-            content = f"{content}\n\n[{link_title}]({link_info['linkUrl']})"
-        return content
-
     def _parse_platform(self) -> ParserPlatformInfo:
         """Build platform information for Jike."""
         return ParserPlatformInfo(
@@ -269,6 +264,8 @@ class JikeParser:
             if not post_id:
                 raise Exception("No post id found in __NEXT_DATA__")
 
+            content = post.get("content") or ""
+
             created_at = post.get("createdAt")
             post_time: float | None = None
             if created_at:
@@ -285,7 +282,7 @@ class JikeParser:
                 pid=post_id,
                 url=url,
                 title=None,
-                content=self._parse_content(post),
+                content=content,
                 media=self._parse_media(post, video_url),
                 author=self._parse_author(post),
                 platform=self._parse_platform(),

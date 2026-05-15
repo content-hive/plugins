@@ -211,7 +211,7 @@ class JikeParser:
         """
         user = post.get("user", {})
         uid = user.get("id", "")
-        username = user.get("username", uid)
+        username = user.get("username") or uid
         name = user.get("screenName", "")
         avatar = (user.get("avatarImage") or {}).get("picUrl")
         banner = (user.get("backgroundImage") or {}).get("picUrl")
@@ -289,7 +289,7 @@ class JikeParser:
                 media=self._parse_media(post, video_url),
                 author=self._parse_author(post),
                 platform=self._parse_platform(),
-                post_time=int(post_time) if post_time else None,
+                post_time=int(post_time) if post_time is not None else None,
                 parser=DOMAIN,
                 state=ParserResultStatus.SUCCESS,
             )

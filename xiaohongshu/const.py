@@ -12,7 +12,9 @@ PLATFORM_ICON = "https://raw.githubusercontent.com/content-hive/assets/main/Icon
 # (xiaohongshu.com/explore/<noteId>, xiaohongshu.com/discovery/item/<noteId>).
 # Uses re.match() so the host must appear at the very start of the string,
 # preventing false positives from query-string values that contain these hostnames.
-URL_PATTERN = r'https?://(?:www\.)?xhslink\.com/o/\S+|https?://(?:www\.)?xiaohongshu\.com/(?:explore|discovery/item)/\w+'
+URL_PATTERN = (
+    r"https?://(?:www\.)?xhslink\.com/o/\S+|https?://(?:www\.)?xiaohongshu\.com/(?:explore|discovery/item)/\w+"
+)
 
 # Parser constants
 STREAM_CODEC_PRIORITY = ("h265", "av1", "h264", "h266")
@@ -21,7 +23,13 @@ REQUEST_HEADERS = {
     "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Mobile/15E148 Safari/604.1"
 }
 
-JS_INVALID_TOKENS = r'\b(?:undefined|NaN|Infinity)\b'
+JS_INVALID_TOKENS = r"\b(?:undefined|NaN|Infinity)\b"
 
 IMAGE_CDN_URL = "https://sns-img-bd.xhscdn.com"
-VIDEO_CDN_URL = "https://sns-bak-v8.xhscdn.com"
+VIDEO_CDN_URL = "https://sns-video-bd.xhscdn.com"
+VIDEO_FALLBACK_CDNS = [
+    "https://sns-video-qc.xhscdn.com",
+    "https://sns-video-hw.xhscdn.com",
+    "https://sns-video-qn.xhscdn.com",
+    "https://sns-bak-v8.xhscdn.com",
+]

@@ -1,31 +1,36 @@
 """
 Xiaohongshu (Little Red Book) content parser plugin.
 """
+
 import json
 import re
-from typing import Optional
 from urllib.parse import urlencode
 
 import aiohttp
 
 from contenthive.plugins.context import PluginContext
 from contenthive.plugins.contracts import (
-    MediaType, ParserResultStatus,
-    ParserAuthorInfo, ParserMediaInfo, ParserPlatformInfo, ParserResult,
+    MediaType,
+    ParserAuthorInfo,
+    ParserMediaInfo,
+    ParserPlatformInfo,
+    ParserResult,
+    ParserResultStatus,
 )
 
 from .const import (
     DOMAIN,
     IMAGE_CDN_URL,
+    JS_INVALID_TOKENS,
     PLATFORM_CODE,
+    PLATFORM_ICON,
     PLATFORM_NAME,
     PLATFORM_URL,
-    PLATFORM_ICON,
-    STREAM_CODEC_PRIORITY,
     REQUEST_HEADERS,
-    JS_INVALID_TOKENS,
+    STREAM_CODEC_PRIORITY,
+    URL_PATTERN,
     VIDEO_CDN_URL,
-    URL_PATTERN
+    VIDEO_FALLBACK_CDNS,
 )
 
 
@@ -51,7 +56,7 @@ class XiaohongshuParser:
         self.context = context
         self.entry = entry
         self.domain = DOMAIN
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
     async def async_setup(self):
         """Initialize parser."""
@@ -84,9 +89,7 @@ class XiaohongshuParser:
                 html = await resp.text()
                 if resp.status != 200:
                     preview = html[:500].replace("\n", " ") if html else ""
-                    raise Exception(
-                        f"HTTP {resp.status} fetching {url!r}; body preview: {preview!r}"
-                    )
+                    raise Exception(f"HTTP {resp.status} fetching {url!r}; body preview: {preview!r}")
             match = re.search(r"window\.__INITIAL_STATE__=({.*?})</script>", html, re.DOTALL)
             if not match:
                 raise Exception("No window.__INITIAL_STATE__ JSON found")
@@ -96,29 +99,30 @@ class XiaohongshuParser:
             return json.loads(state_json)
         except Exception as e:
             self.context.logger.exception(f"Failed to fetch or parse {url}")
-            raise Exception(f"Failed to fetch or parse page: {e}")
+            raise Exception(f"Failed to fetch or parse page: {e}") from e
 
-    def _extract_video_info(self, stream: dict) -> Optional[dict]:
+    def _extract_video_info(self, stream: dict) -> dict | None:
         """Extract video information from the stream dict, prioritizing codecs in STREAM_CODEC_PRIORITY.
 
         Args:
             stream: Stream dict containing codec keys (h264, h265, h266, av1).
 
         Returns:
-            Video information dict with keys 'url', 'duration', 'width', 'height', or None if no valid stream entry is found.
+            Video information dict with keys 'url', 'url_fallbacks', 'duration', 'width', 'height',
+            or None if no valid stream entry is found.
         """
         for codec in STREAM_CODEC_PRIORITY:
             entries = stream.get(codec) or []
             for entry in entries:
                 url = entry.get("masterUrl")
                 if url:
-                    url = self._strip_url_query(url)
-                    url = re.sub(r"^https?://[^/]+", VIDEO_CDN_URL, url)
+                    path = re.sub(r"^https?://[^/]+", "", self._strip_url_query(url))
                     return {
-                        "url": url,
+                        "url": VIDEO_CDN_URL + path,
+                        "url_fallbacks": [cdn + path for cdn in VIDEO_FALLBACK_CDNS],
                         "duration": entry.get("duration"),
                         "width": entry.get("width"),
-                        "height": entry.get("height")
+                        "height": entry.get("height"),
                     }
         return None
 
@@ -131,9 +135,9 @@ class XiaohongshuParser:
         Returns:
             URL with everything after '?' (and '#') removed.
         """
-        return url.split('?', 1)[0].split('#', 1)[0]
+        return url.split("?", 1)[0].split("#", 1)[0]
 
-    def _get_img_url_by_trace_id(self, trace_id: str) -> Optional[str]:
+    def _get_img_url_by_trace_id(self, trace_id: str) -> str:
         """Construct image URL from traceId.
 
         Args:
@@ -143,7 +147,7 @@ class XiaohongshuParser:
             Constructed image URL string.
         """
         return f"{IMAGE_CDN_URL}/{trace_id}"
-    
+
     def _parse_media(self, note: dict) -> list[ParserMediaInfo]:
         """Parse media list from note data.
 
@@ -165,26 +169,31 @@ class XiaohongshuParser:
                 # Live photo: video in stream, cover is image
                 vid_info = self._extract_video_info(img.get("stream", {}))
                 if vid_info:
-                    media_list.append(ParserMediaInfo(
-                        url=vid_info["url"],
-                        type=MediaType.LIVEPHOTO,
-                        title=None,
-                        cover=img_url,
-                        duration=vid_info.get("duration"),
-                        width=img.get("width"),
-                        height=img.get("height")
-                    ))
+                    media_list.append(
+                        ParserMediaInfo(
+                            url=vid_info["url"],
+                            url_fallbacks=vid_info.get("url_fallbacks"),
+                            type=MediaType.LIVEPHOTO,
+                            title=None,
+                            cover=img_url,
+                            duration=vid_info.get("duration"),
+                            width=img.get("width"),
+                            height=img.get("height"),
+                        )
+                    )
             else:
                 # Normal image
-                media_list.append(ParserMediaInfo(
-                    url=img_url,
-                    type=MediaType.IMAGE,
-                    title=None,
-                    cover=None,
-                    duration=None,
-                    width=img.get("width"),
-                    height=img.get("height")
-                ))
+                media_list.append(
+                    ParserMediaInfo(
+                        url=img_url,
+                        type=MediaType.IMAGE,
+                        title=None,
+                        cover=None,
+                        duration=None,
+                        width=img.get("width"),
+                        height=img.get("height"),
+                    )
+                )
 
         video = note.get("video", {})
         video_stream = video.get("media", {}).get("stream", {})
@@ -195,16 +204,19 @@ class XiaohongshuParser:
             cover_id = cover_image.get("firstFrameFileid") or first_image.get("traceId") or first_image.get("fileId")
             cover_url = self._get_img_url_by_trace_id(cover_id) if cover_id else None
 
-            media_list.append(ParserMediaInfo(
-                url=vid_info["url"],
-                type=MediaType.VIDEO,
-                title=None,
-                cover=cover_url,
-                duration=vid_info.get("duration"),
-                width=vid_info.get("width"),
-                height=vid_info.get("height")
-            ))
-        
+            media_list.append(
+                ParserMediaInfo(
+                    url=vid_info["url"],
+                    url_fallbacks=vid_info.get("url_fallbacks"),
+                    type=MediaType.VIDEO,
+                    title=None,
+                    cover=cover_url,
+                    duration=vid_info.get("duration"),
+                    width=vid_info.get("width"),
+                    height=vid_info.get("height"),
+                )
+            )
+
         return media_list
 
     async def _parse_author(self, note: dict, xsec_token: str = "") -> ParserAuthorInfo:
@@ -226,16 +238,8 @@ class XiaohongshuParser:
         user_id = user.get("userId", "")
         if not user_id:
             self.context.logger.warning("No userId found in note data")
-            return ParserAuthorInfo(
-                uid="",
-                name="",
-                username="",
-                avatar=None,
-                url=None,
-                banner=None,
-                description=None
-            )
-        
+            return ParserAuthorInfo(uid="", name="", username="", avatar=None, url=None, banner=None, description=None)
+
         query = urlencode({"xsec_token": xsec_token})
         profile_url = f"https://www.xiaohongshu.com/user/profile/{user_id}"
         profile_fetch_url = f"{profile_url}?{query}"
@@ -263,7 +267,7 @@ class XiaohongshuParser:
             avatar=avatar or None,
             url=profile_url,
             banner=banner or None,
-            description=description
+            description=description,
         )
 
     def _parse_platform(self) -> ParserPlatformInfo:
@@ -321,15 +325,15 @@ class XiaohongshuParser:
                 platform=self._parse_platform(),
                 post_time=post_time,
                 parser=DOMAIN,
-                state=ParserResultStatus.SUCCESS
+                state=ParserResultStatus.SUCCESS,
             )
         except Exception as e:
             self.context.logger.exception(f"Failed to parse {url}")
-            raise Exception(f"Failed to parse Xiaohongshu URL: {e}")
+            raise Exception(f"Failed to parse Xiaohongshu URL: {e}") from e
 
     async def async_will_remove(self):
         """Clean up resources when removing parser."""
-        if hasattr(self, '_session') and self._session and not self._session.closed:
+        if hasattr(self, "_session") and self._session and not self._session.closed:
             await self._session.close()
             self._session = None
             self.context.logger.info(f"{DOMAIN} parser session closed")

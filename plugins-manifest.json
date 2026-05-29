@@ -69,6 +69,20 @@
       "path": "twitter",
       "enabled": true,
       "disclaimer": "This plugin fetches content via X(Twitter) public APIs. Please ensure compliance with X's Terms of Service and applicable local laws before use. Platform policy changes may cause the plugin to stop working."
+    },
+    {
+      "domain": "instagram",
+      "name": "Instagram",
+      "version": "0.1.0",
+      "description": "An Instagram content parsing plugin for Content Hive. Fetches post content, images, videos, reels, and author information. Supports authenticated access via sessionid cookie (private API) and unauthenticated access via public GraphQL endpoint.",
+      "author": [
+        "content-hive"
+      ],
+      "requirements": [],
+      "config_flow": true,
+      "path": "instagram",
+      "enabled": true,
+      "disclaimer": "This plugin fetches content via Instagram APIs. Please ensure compliance with Instagram's Terms of Service and applicable local laws before use. Platform policy changes may cause the plugin to stop working."
     }
   ]
 }

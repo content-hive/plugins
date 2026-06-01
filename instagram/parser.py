@@ -124,7 +124,7 @@ class InstagramParser:
             if not shortcode:
                 raise ValueError(f"Cannot extract shortcode from URL: {url!r}")
 
-            post = await self._client.fetch_post(shortcode, url)
+            post = await self._client.fetch_post(shortcode)
 
             return ParserResult(
                 pid=shortcode,

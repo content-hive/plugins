@@ -19,21 +19,20 @@ URL_PATTERN = (
     r"/([^/?#&]+)"
 )
 
-# Instagram app ID (same as yt-dlp / official web client)
-APP_ID = "936619743392459"
-ASBD_ID = "198387"
+# Instagram Android app identifiers (matches instagrapi defaults)
+APP_ID = "567067343352427"
+APP_VERSION = "428.0.0.47.67"
+VERSION_CODE = "961145276"
+BLOKS_VERSIONING_ID = "7189b949425f9bf80ea8bd880cf5a3080b292d9b1c4b38a18d112f7c4b71e7a8"
 
 # Private API base (requires sessionid cookie)
 API_BASE = "https://i.instagram.com/api/v1"
 
-# Public GraphQL endpoint (no sessionid required, but CSRF token needed)
-GRAPHQL_URL = "https://www.instagram.com/graphql/query/"
-GRAPHQL_DOC_ID = "8845758582119845"
-
+# Android User-Agent simulating Pixel 8 Pro / Android 14
 USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/124.0.0.0 Safari/537.36"
+    "Instagram 428.0.0.47.67 "
+    "Android (34/14; 480dpi; 1344x2992; Google/google; "
+    "Pixel 8 Pro; husky; husky; en_US; 961145276)"
 )
 
 # Private API media_type values

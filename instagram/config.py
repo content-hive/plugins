@@ -9,11 +9,7 @@ class ConfigSchema(PluginConfigSchema):
     cookies: str = Field(
         default="",
         title="Cookie",
-        description=(
-            "Optional. Instagram account cookie string. "
-            "The 'sessionid' key is required for accessing restricted content via the private API. "
-            "Without it, the plugin falls back to the public GraphQL endpoint."
-        ),
+        description="Required. Instagram account cookie string. The 'sessionid' key is required.",
         json_schema_extra={"secret": True},
     )
 

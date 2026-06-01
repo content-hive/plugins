@@ -2,9 +2,7 @@
 Instagram Parser Plugin for ContentHive
 Parses Instagram posts, reels, and IGTV for ContentHive.
 
-Supports two access modes:
-- Authenticated (sessionid cookie in config): uses the private /api/v1/media/{pk}/info/ endpoint.
-- Unauthenticated: falls back to the public GraphQL endpoint (may be rate-limited).
+Requires authentication via cookies (sessionid) configured in the plugin settings.
 """
 
 from typing import cast
@@ -27,6 +25,10 @@ async def async_setup(context: PluginContext) -> bool:
 async def async_setup_entry(context: PluginContext, entry) -> bool:
     config = cast(ConfigSchema, context.get_config(DOMAIN)) if context.get_config else ConfigSchema()
     cookies = parse_cookie_string(config.cookies)
+    if not cookies:
+        raise ValueError(f"{DOMAIN} plugin setup failed: 'cookies' is not configured")
+    if not cookies.get("sessionid"):
+        raise ValueError(f"{DOMAIN} plugin setup failed: 'sessionid' cookie is required")
 
     def _on_cookies_updated(updated: dict[str, str]) -> None:
         if context.save_config and context.get_config:

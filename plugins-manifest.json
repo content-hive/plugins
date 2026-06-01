@@ -73,8 +73,8 @@
     {
       "domain": "instagram",
       "name": "Instagram",
-      "version": "0.1.0",
-      "description": "An Instagram content parsing plugin for Content Hive. Fetches post content, images, videos, reels, and author information. Supports authenticated access via sessionid cookie (private API) and unauthenticated access via public GraphQL endpoint.",
+      "version": "0.1.1",
+      "description": "An Instagram content parsing plugin for Content Hive. Fetches post content, images, videos, reels, and author information. Requires authentication via sessionid cookie (private API).",
       "author": [
         "content-hive"
       ],

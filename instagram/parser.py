@@ -15,6 +15,9 @@ from contenthive.plugins.contracts import (
 from .api_client import InstagramAPIClient
 from .const import (
     DOMAIN,
+    MEDIA_TYPE_CAROUSEL,
+    MEDIA_TYPE_IMAGE,
+    MEDIA_TYPE_VIDEO,
     PLATFORM_CODE,
     PLATFORM_ICON,
     PLATFORM_NAME,
@@ -56,6 +59,96 @@ class InstagramParser:
         """Extract the shortcode from an Instagram post URL."""
         match = re.match(URL_PATTERN, url)
         return match.group(1) if match else None
+
+    @staticmethod
+    def _best_image_url(media_item: dict) -> str | None:
+        candidates = (media_item.get("image_versions2") or {}).get("candidates") or []
+        return candidates[0].get("url") if candidates else None
+
+    def _normalize_media_item(self, media_item: dict) -> dict | None:
+        media_type = media_item.get("media_type")
+
+        if media_type == MEDIA_TYPE_VIDEO:
+            versions = media_item.get("video_versions") or []
+            if not versions:
+                return None
+            best = versions[0]
+            cover = self._best_image_url(media_item)
+            duration_s = media_item.get("video_duration")
+            return {
+                "type": "video",
+                "url": best.get("url") or "",
+                "width": best.get("width"),
+                "height": best.get("height"),
+                "cover": cover,
+                "duration_ms": int(duration_s * 1000) if duration_s else None,
+            }
+
+        if media_type == MEDIA_TYPE_IMAGE:
+            url = self._best_image_url(media_item)
+            if not url:
+                return None
+            candidates = (media_item.get("image_versions2") or {}).get("candidates") or []
+            best = candidates[0] if candidates else {}
+            return {
+                "type": "image",
+                "url": url,
+                "width": best.get("width"),
+                "height": best.get("height"),
+                "cover": None,
+                "duration_ms": None,
+            }
+
+        self.context.logger.debug(f"{DOMAIN}: unknown private API media_type={media_type}, skipping")
+        return None
+
+    def _normalize_post_item(self, item: dict) -> dict:
+        user = item.get("user") or {}
+        caption_text = (item.get("caption") or {}).get("text") or None
+        media_type = item.get("media_type")
+
+        media: list[dict] = []
+        if media_type == MEDIA_TYPE_CAROUSEL:
+            for child in item.get("carousel_media") or []:
+                entry = self._normalize_media_item(child)
+                if entry:
+                    media.append(entry)
+        else:
+            entry = self._normalize_media_item(item)
+            if entry:
+                media.append(entry)
+
+        return {
+            "shortcode": item.get("code") or "",
+            "pk": str(item.get("pk") or ""),
+            "caption": caption_text,
+            "taken_at": item.get("taken_at"),
+            "user": {
+                "uid": str(user.get("pk") or ""),
+                "username": user.get("username") or "",
+                "name": user.get("full_name") or None,
+                "avatar": (user.get("hd_profile_pic_url_info") or {}).get("url") or user.get("profile_pic_url") or None,
+            },
+            "media": media,
+        }
+
+    @staticmethod
+    def _normalize_user(user: dict) -> dict:
+        versions = user.get("hd_profile_pic_versions") or []
+        pic_hd = versions[-1] if versions else (user.get("hd_profile_pic_url_info") or {})
+        return {
+            "uid": str(user.get("pk") or ""),
+            "username": user.get("username") or "",
+            "name": user.get("full_name") or None,
+            "avatar": pic_hd.get("url") or user.get("profile_pic_url") or None,
+            "bio": user.get("biography") or None,
+            "is_private": user.get("is_private") or False,
+            "is_verified": user.get("is_verified") or False,
+            "follower_count": user.get("follower_count"),
+            "following_count": user.get("following_count"),
+            "media_count": user.get("media_count"),
+            "external_url": user.get("external_url") or None,
+        }
 
     def _parse_media(self, media_list: list[dict]) -> list[ParserMediaInfo]:
         result: list[ParserMediaInfo] = []
@@ -124,7 +217,17 @@ class InstagramParser:
             if not shortcode:
                 raise ValueError(f"Cannot extract shortcode from URL: {url!r}")
 
-            post = await self._client.fetch_post(shortcode)
+            raw_item = await self._client.fetch_post(shortcode)
+            post = self._normalize_post_item(raw_item)
+
+            username = (post.get("user") or {}).get("username")
+            if username:
+                try:
+                    self.context.logger.debug(f"{DOMAIN}: enriching user info (username={username})")
+                    raw_user = await self._client.fetch_user(username)
+                    post["user"] = self._normalize_user(raw_user)
+                except Exception as e:
+                    self.context.logger.warning(f"{DOMAIN}: failed to enrich user info: {e}")
 
             return ParserResult(
                 pid=shortcode,

@@ -17,9 +17,6 @@ from .const import (
     APP_ID,
     BLOKS_VERSIONING_ID,
     DOMAIN,
-    MEDIA_TYPE_CAROUSEL,
-    MEDIA_TYPE_IMAGE,
-    MEDIA_TYPE_VIDEO,
     USER_AGENT,
 )
 from .utils import shortcode_to_pk
@@ -115,7 +112,7 @@ class InstagramAPIClient:
     # ------------------------------------------------------------------ #
 
     async def _fetch_via_private_api(self, pk: str) -> dict:
-        """Call /api/v1/media/{pk}/info/ and return normalized PostData."""
+        """Call /api/v1/media/{pk}/info/ and return the raw items[0] dict."""
         url = f"{API_BASE}/media/{pk}/info/"
         async with self._active_session.get(url, headers=self._base_headers()) as resp:
             if resp.status == 401:
@@ -126,97 +123,44 @@ class InstagramAPIClient:
                 body = await resp.text()
                 raise InstagramAPIError(f"Private API HTTP {resp.status}: {body[:200]}")
             data = await resp.json(content_type=None)
-
+            self._logger.debug(await resp.text())
         self._sync_session_cookies()
 
         item = (data.get("items") or [None])[0]
         if not item:
             raise InstagramAPIError("Private API returned no items")
 
-        return self._normalize_private(item)
+        return item
 
-    def _normalize_private(self, item: dict) -> dict:
-        """Convert a private API 'item' dict into a normalized PostData dict."""
-        user = item.get("user") or {}
-        caption_text = (item.get("caption") or {}).get("text") or None
-        media_type = item.get("media_type")
+    # ------------------------------------------------------------------ #
+    # User info
+    # ------------------------------------------------------------------ #
 
-        media: list[dict] = []
-        if media_type == MEDIA_TYPE_CAROUSEL:
-            for child in item.get("carousel_media") or []:
-                entry = self._normalize_private_media(child)
-                if entry:
-                    media.append(entry)
-        else:
-            entry = self._normalize_private_media(item)
-            if entry:
-                media.append(entry)
-
-        return {
-            "shortcode": item.get("code") or "",
-            "pk": str(item.get("pk") or ""),
-            "caption": caption_text,
-            "taken_at": item.get("taken_at"),
-            "user": {
-                "uid": str(user.get("pk") or ""),
-                "username": user.get("username") or "",
-                "name": user.get("full_name") or None,
-                "avatar": (user.get("hd_profile_pic_url_info") or {}).get("url") or user.get("profile_pic_url") or None,
-            },
-            "media": media,
-        }
-
-    def _normalize_private_media(self, media_item: dict) -> dict | None:
-        """Extract one normalized media entry from a private API media item."""
-        media_type = media_item.get("media_type")
-
-        if media_type == MEDIA_TYPE_VIDEO:
-            versions = media_item.get("video_versions") or []
-            if not versions:
-                return None
-            # video_versions is sorted best-first by Instagram
-            best = versions[0]
-            cover = self._best_image_url(media_item)
-            duration_s = media_item.get("video_duration")
-            return {
-                "type": "video",
-                "url": best.get("url") or "",
-                "width": best.get("width"),
-                "height": best.get("height"),
-                "cover": cover,
-                "duration_ms": int(duration_s * 1000) if duration_s else None,
-            }
-
-        if media_type == MEDIA_TYPE_IMAGE:
-            url = self._best_image_url(media_item)
-            if not url:
-                return None
-            candidates = (media_item.get("image_versions2") or {}).get("candidates") or []
-            best = candidates[0] if candidates else {}
-            return {
-                "type": "image",
-                "url": url,
-                "width": best.get("width"),
-                "height": best.get("height"),
-                "cover": None,
-                "duration_ms": None,
-            }
-
-        self._logger.debug(f"{DOMAIN}: unknown private API media_type={media_type}, skipping")
-        return None
-
-    @staticmethod
-    def _best_image_url(media_item: dict) -> str | None:
-        """Pick the highest-resolution image URL from image_versions2.candidates."""
-        candidates = (media_item.get("image_versions2") or {}).get("candidates") or []
-        return candidates[0].get("url") if candidates else None
+    async def fetch_user(self, username: str) -> dict:
+        """Call /api/v1/users/{username}/usernameinfo/ and return the raw user dict."""
+        url = f"{API_BASE}/users/{username}/usernameinfo/"
+        async with self._active_session.get(url, headers=self._base_headers()) as resp:
+            if resp.status == 401:
+                raise InstagramAuthError("Private API auth failed (HTTP 401) — check sessionid cookie")
+            if resp.status == 404:
+                raise InstagramUnavailableError(f"User not found (HTTP 404, username={username})")
+            if resp.status != 200:
+                body = await resp.text()
+                raise InstagramAPIError(f"Private API HTTP {resp.status}: {body[:200]}")
+            data = await resp.json(content_type=None)
+            self._logger.debug(await resp.text())
+        self._sync_session_cookies()
+        user = data.get("user")
+        if not user:
+            raise InstagramAPIError("Private API returned no user")
+        return user
 
     # ------------------------------------------------------------------ #
     # Public entry point
     # ------------------------------------------------------------------ #
 
     async def fetch_post(self, shortcode: str) -> dict:
-        """Fetch and return a normalized PostData dict for the given shortcode.
+        """Fetch and return the raw media item dict for the given shortcode.
 
         Requires a valid sessionid cookie. Raises InstagramAuthError if none
         is configured.

@@ -27,6 +27,8 @@ async def async_setup_entry(context: PluginContext, entry) -> bool:
     cookies = parse_cookie_string(config.cookies)
     if not cookies:
         raise ValueError(f"{DOMAIN} plugin setup failed: 'cookies' is not configured")
+    if not cookies.get("sessionid"):
+        raise ValueError(f"{DOMAIN} plugin setup failed: 'sessionid' cookie is required")
 
     def _on_cookies_updated(updated: dict[str, str]) -> None:
         if context.save_config and context.get_config:

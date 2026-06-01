@@ -123,7 +123,7 @@ class InstagramAPIClient:
                 body = await resp.text()
                 raise InstagramAPIError(f"Private API HTTP {resp.status}: {body[:200]}")
             data = await resp.json(content_type=None)
-            self._logger.debug(await resp.text())
+
         self._sync_session_cookies()
 
         item = (data.get("items") or [None])[0]
@@ -148,7 +148,7 @@ class InstagramAPIClient:
                 body = await resp.text()
                 raise InstagramAPIError(f"Private API HTTP {resp.status}: {body[:200]}")
             data = await resp.json(content_type=None)
-            self._logger.debug(await resp.text())
+
         self._sync_session_cookies()
         user = data.get("user")
         if not user:

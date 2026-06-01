@@ -103,10 +103,12 @@ class InstagramParser:
             if not versions:
                 return None
             best = versions[0]
+            if not best.get("url"):
+                return None
             cover = self._best_image_candidate(media_item)
             duration_s = media_item.get("video_duration")
             return ParserMediaInfo(
-                url=best.get("url") or "",
+                url=best["url"],
                 type=MediaType.VIDEO,
                 cover=cover.get("url") if cover else None,
                 duration=int(duration_s * 1000) if duration_s else None,

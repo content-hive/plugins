@@ -106,7 +106,7 @@ class InstagramAPIClient:
         url = f"{API_BASE}/media/{pk}/info/"
         async with self._active_session.get(url, headers=self._base_headers()) as resp:
             if resp.status == 401:
-                raise InstagramAuthError(f"Private API auth failed (HTTP 401) — check sessionid cookie")
+                raise InstagramAuthError("Private API auth failed (HTTP 401) — check sessionid cookie")
             if resp.status == 404:
                 raise InstagramUnavailableError(f"Post not found (HTTP 404, pk={pk})")
             if resp.status != 200:
@@ -148,7 +148,7 @@ class InstagramAPIClient:
                 "uid": str(user.get("pk") or ""),
                 "username": user.get("username") or "",
                 "name": user.get("full_name") or None,
-                "avatar": user.get("profile_pic_url") or None,
+                "avatar": (user.get("hd_profile_pic_url_info") or {}).get("url") or user.get("profile_pic_url") or None,
             },
             "media": media,
         }
@@ -204,10 +204,7 @@ class InstagramAPIClient:
 
     async def _setup_csrf(self, pk: str) -> str | None:
         """Hit the ruling endpoint to seed the session with a csrftoken cookie."""
-        ruling_url = (
-            f"{API_BASE}/web/get_ruling_for_content/"
-            f"?content_type=MEDIA&target_id={pk}"
-        )
+        ruling_url = f"{API_BASE}/web/get_ruling_for_content/?content_type=MEDIA&target_id={pk}"
         try:
             async with self._active_session.get(ruling_url, headers=self._base_headers()) as resp:
                 await resp.read()

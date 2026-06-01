@@ -79,7 +79,7 @@
         "content-hive"
       ],
       "requirements": [],
-      "config_flow": true,
+      "config_flow": false,
       "path": "instagram",
       "enabled": true,
       "disclaimer": "This plugin fetches content via Instagram APIs. Please ensure compliance with Instagram's Terms of Service and applicable local laws before use. Platform policy changes may cause the plugin to stop working."

@@ -2,6 +2,7 @@
 
 # Base-64 alphabet used by Instagram shortcodes (same as yt-dlp)
 _ENCODING_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+_DECODE_MAP: dict[str, int] = {c: i for i, c in enumerate(_ENCODING_CHARS)}
 
 
 def shortcode_to_pk(shortcode: str) -> str:
@@ -15,7 +16,9 @@ def shortcode_to_pk(shortcode: str) -> str:
         shortcode = shortcode[:-28]
     pk = 0
     for char in shortcode:
-        pk = pk * 64 + _ENCODING_CHARS.index(char)
+        if char not in _DECODE_MAP:
+            raise ValueError(f"Invalid shortcode character: {char!r}")
+        pk = pk * 64 + _DECODE_MAP[char]
     return str(pk)
 
 

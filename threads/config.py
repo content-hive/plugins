@@ -1,3 +1,5 @@
+"""Threads plugin configuration schema."""
+
 from pydantic import Field
 
 from contenthive.plugins.contracts import PluginConfigSchema

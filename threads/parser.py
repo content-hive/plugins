@@ -98,6 +98,9 @@ class ThreadsParser:
             except json.JSONDecodeError:
                 continue
 
+            if not isinstance(data, dict):
+                continue
+
             for top_item in data.get("require") or []:
                 if not (isinstance(top_item, list) and top_item and top_item[0] == "ScheduledServerJS"):
                     continue
@@ -185,7 +188,7 @@ class ThreadsParser:
                 url=video["url"],
                 type=MediaType.VIDEO,
                 cover=cover,
-                duration=video.get("duration"),
+                duration=None,
                 width=item.get("original_width"),
                 height=item.get("original_height"),
             )
@@ -219,7 +222,7 @@ class ThreadsParser:
                         url=video["url"],
                         type=MediaType.VIDEO,
                         cover=cover,
-                        duration=video.get("duration"),
+                        duration=None,
                         width=media.get("original_width"),
                         height=media.get("original_height"),
                     )

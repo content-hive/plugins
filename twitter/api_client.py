@@ -76,7 +76,6 @@ class TwitterAPIClient:
             return
         session_cookies = {m.key: m.value for m in self._session.cookie_jar if m.value}
         if self._cookies != session_cookies:
-            self._csrf_token = session_cookies.get("ct0") or self._csrf_token
             self._notify_cookies_updated(session_cookies)
 
     def _notify_cookies_updated(self, updated: dict[str, str]) -> None:
@@ -87,6 +86,7 @@ class TwitterAPIClient:
                 self._logger.warning(f"{DOMAIN}: failed to persist updated cookies: {e}")
                 return
         self._cookies = updated
+        self._csrf_token = updated.get("ct0") or self._csrf_token
 
     def _api_headers(self, guest_token: str | None = None) -> dict:
         """Build API request headers with Bearer auth and optional guest/CSRF tokens."""

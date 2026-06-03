@@ -22,6 +22,10 @@ def _parse_cookie_string(raw: str) -> dict[str, str]:
     return result
 
 
+def _serialize_cookie_dict(cookies: dict[str, str]) -> str:
+    return "; ".join(f"{k}={v}" for k, v in cookies.items() if k)
+
+
 async def async_setup(context: PluginContext) -> bool:
     context.logger.info(f"{DOMAIN} plugin setup")
     return True
@@ -30,7 +34,14 @@ async def async_setup(context: PluginContext) -> bool:
 async def async_setup_entry(context: PluginContext, entry) -> bool:
     config = cast(ConfigSchema, context.get_config(DOMAIN)) if context.get_config else ConfigSchema()
     cookies = _parse_cookie_string(config.cookies)
-    context.data[DOMAIN] = {"cookies": cookies, "config": config}
+
+    def _on_cookies_updated(updated: dict[str, str]) -> None:
+        if context.save_config and context.get_config:
+            cfg = context.get_config(DOMAIN)
+            context.save_config(DOMAIN, cfg.model_copy(update={"cookies": _serialize_cookie_dict(updated)}))
+            context.logger.debug(f"{DOMAIN} cookies persisted")
+
+    context.data[DOMAIN] = {"cookies": cookies, "config": config, "on_cookies_updated": _on_cookies_updated}
 
     if context.async_forward_entry_setup:
         await context.async_forward_entry_setup(entry, "parser")

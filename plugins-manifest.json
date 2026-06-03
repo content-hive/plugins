@@ -89,7 +89,7 @@
     {
       "domain": "threads",
       "name": "Threads",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "A Threads content parsing plugin for Content Hive. Parses post URLs to extract text, images, videos, and author information via mobile page scraping. Supports optional cookie authentication for accessing restricted content.",
       "author": [
         "content-hive"

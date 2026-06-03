@@ -53,10 +53,15 @@ class ThreadsParser:
         self.entry = entry
         self.domain = DOMAIN
         self._session: aiohttp.ClientSession | None = None
+        self._cookies: dict[str, str] = {}
+        self._on_cookies_updated = None
 
     async def async_setup(self):
         """Initialize parser."""
-        cookies = self.context.data.get(DOMAIN, {}).get("cookies") or {}
+        entry_data = self.context.data.get(DOMAIN, {})
+        cookies = entry_data.get("cookies") or {}
+        self._cookies = dict(cookies)
+        self._on_cookies_updated = entry_data.get("on_cookies_updated")
         self._session = aiohttp.ClientSession(
             trust_env=True,
             cookies=cookies if cookies else None,
@@ -120,6 +125,19 @@ class ThreadsParser:
                         continue
         return None
 
+    def _sync_session_cookies(self) -> None:
+        if not self._session or self._session.closed:
+            return
+        session_cookies = {m.key: m.value for m in self._session.cookie_jar if m.value}
+        if session_cookies != self._cookies:
+            if self._on_cookies_updated:
+                try:
+                    self._on_cookies_updated(dict(session_cookies))
+                except Exception as e:
+                    self.context.logger.warning(f"{DOMAIN}: failed to persist cookies: {e}")
+                    return
+            self._cookies = session_cookies
+
     async def _fetch_html(self, url: str) -> str:
         """Fetch url and return the response HTML text."""
         if not self._session:
@@ -129,6 +147,7 @@ class ThreadsParser:
             if resp.status != 200:
                 preview = html[:500].replace("\n", " ") if html else ""
                 raise Exception(f"HTTP {resp.status} fetching {url!r}; body: {preview!r}")
+        self._sync_session_cookies()
         return html
 
     async def _fetch_relay_data(self, url: str, relay_key: str) -> dict:

@@ -74,12 +74,13 @@ class InstagramAPIClient:
             return
         session_cookies = {m.key: m.value for m in self._session.cookie_jar if m.value}
         if self._cookies != session_cookies:
-            self._cookies = session_cookies
             if self._on_cookies_updated:
                 try:
-                    self._on_cookies_updated(dict(self._cookies))
+                    self._on_cookies_updated(dict(session_cookies))
                 except Exception as e:
                     self._logger.warning(f"{DOMAIN}: failed to persist updated cookies: {e}")
+                    return
+            self._cookies = session_cookies
 
     def _base_headers(self) -> dict[str, str]:
         return {

@@ -130,12 +130,13 @@ class ThreadsParser:
             return
         session_cookies = {m.key: m.value for m in self._session.cookie_jar if m.value}
         if session_cookies != self._cookies:
-            self._cookies = session_cookies
             if self._on_cookies_updated:
                 try:
-                    self._on_cookies_updated(dict(self._cookies))
+                    self._on_cookies_updated(dict(session_cookies))
                 except Exception as e:
                     self.context.logger.warning(f"{DOMAIN}: failed to persist cookies: {e}")
+                    return
+            self._cookies = session_cookies
 
     async def _fetch_html(self, url: str) -> str:
         """Fetch url and return the response HTML text."""

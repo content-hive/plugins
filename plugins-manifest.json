@@ -61,7 +61,7 @@
     {
       "domain": "twitter",
       "name": "X(Twitter)",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "An X(Twitter) content parsing plugin for Content Hive. Fetches tweet content, images, videos, and author information via the GraphQL API.",
       "author": [
         "content-hive"

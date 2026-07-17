@@ -32,12 +32,14 @@
     {
       "domain": "douyin",
       "name": "抖音",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "description": "一个用于Content Hive的抖音内容解析插件。通过解析抖音链接，提取视频内容、作者信息等数据。",
       "author": [
         "content-hive"
       ],
-      "requirements": ["gmssl>=3.2.2"],
+      "requirements": [
+        "gmssl>=3.2.2"
+      ],
       "config_flow": false,
       "path": "douyin",
       "enabled": true,
@@ -59,7 +61,7 @@
     {
       "domain": "twitter",
       "name": "X(Twitter)",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "An X(Twitter) content parsing plugin for Content Hive. Fetches tweet content, images, videos, and author information via the GraphQL API.",
       "author": [
         "content-hive"
@@ -69,6 +71,34 @@
       "path": "twitter",
       "enabled": true,
       "disclaimer": "This plugin fetches content via X(Twitter) public APIs. Please ensure compliance with X's Terms of Service and applicable local laws before use. Platform policy changes may cause the plugin to stop working."
+    },
+    {
+      "domain": "instagram",
+      "name": "Instagram",
+      "version": "0.1.2",
+      "description": "An Instagram content parsing plugin for Content Hive. Fetches post content, images, videos, reels, and author information. Requires authentication via sessionid cookie (private API).",
+      "author": [
+        "content-hive"
+      ],
+      "requirements": [],
+      "config_flow": false,
+      "path": "instagram",
+      "enabled": true,
+      "disclaimer": "This plugin fetches content via Instagram APIs. Please ensure compliance with Instagram's Terms of Service and applicable local laws before use. Platform policy changes may cause the plugin to stop working."
+    },
+    {
+      "domain": "threads",
+      "name": "Threads",
+      "version": "0.1.1",
+      "description": "A Threads content parsing plugin for Content Hive. Parses post URLs to extract text, images, videos, and author information via mobile page scraping. Supports optional cookie authentication for accessing restricted content.",
+      "author": [
+        "content-hive"
+      ],
+      "requirements": [],
+      "config_flow": false,
+      "path": "threads",
+      "enabled": true,
+      "disclaimer": "This plugin fetches content via Threads mobile page scraping. Cookie authentication may carry the risk of account suspension. Please ensure compliance with Threads' Terms of Service and applicable local laws before use. Platform policy changes may cause the plugin to stop working."
     }
   ]
 }

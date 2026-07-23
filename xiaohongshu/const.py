@@ -8,12 +8,12 @@ PLATFORM_NAME = "小红书"
 PLATFORM_URL = "https://www.xiaohongshu.com/"
 PLATFORM_ICON = "https://raw.githubusercontent.com/content-hive/assets/main/IconSet/小红书.png"
 
-# URL pattern — matches short-links (xhslink.com/o/<path>) and direct note URLs
+# URL pattern — matches short-links (xhslink.(com|cn)/o/<path>) and direct note URLs
 # (xiaohongshu.com/explore/<noteId>, xiaohongshu.com/discovery/item/<noteId>).
 # Uses re.match() so the host must appear at the very start of the string,
 # preventing false positives from query-string values that contain these hostnames.
 URL_PATTERN = (
-    r"https?://(?:www\.)?xhslink\.com/o/\S+|https?://(?:www\.)?xiaohongshu\.com/(?:explore|discovery/item)/\w+"
+    r"https?://(?:www\.)?xhslink\.(?:com|cn)/o/\S+|https?://(?:www\.)?xiaohongshu\.com/(?:explore|discovery/item)/\w+"
 )
 
 # Parser constants

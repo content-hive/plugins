@@ -397,9 +397,18 @@ class DouyinAPIClient:
                                 await f.write(chunk)
                                 written += len(chunk)
                                 if on_byte_progress is not None:
-                                    maybe_awaitable = on_byte_progress(written, expected_size)
-                                    if inspect.isawaitable(maybe_awaitable):
-                                        await maybe_awaitable
+                                    try:
+                                        maybe_awaitable = on_byte_progress(written, expected_size)
+                                        if inspect.isawaitable(maybe_awaitable):
+                                            await maybe_awaitable
+                                    except asyncio.CancelledError:
+                                        raise
+                                    except Exception:
+                                        if self.logger:
+                                            self.logger.debug(
+                                                "on_byte_progress failed",
+                                                exc_info=True,
+                                            )
 
                         if expected_size is not None and written != expected_size:
                             last_error = ValueError(f"Size mismatch: expected {expected_size}, got {written}")

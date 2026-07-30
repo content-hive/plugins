@@ -16,7 +16,14 @@ async def invoke_progress(callback: ProgressCallback | None, pct: int) -> None:
 
 
 class ByteProgressAggregator:
-    """Merge parallel file downloads into a single 0-100 percent via byte weighting."""
+    """
+    Merge parallel file downloads into a single percent via byte weighting.
+
+    Formula: sum(downloaded of known-total slots) / sum(known totals) * 100.
+    Slots without a known Content-Length are excluded from both sums.
+    When no Content-Length is known yet, no percent is emitted (stays at 0).
+    Intermediate updates are capped at 99; callers emit 100 after all downloads finish.
+    """
 
     def __init__(self, on_progress: ProgressCallback | None = None) -> None:
         self._on_progress = on_progress
@@ -45,7 +52,7 @@ class ByteProgressAggregator:
         if not has_known_total or total_sum <= 0:
             return
 
-        pct = min(100, int(downloaded_sum * 100 / total_sum))
+        pct = min(99, int(downloaded_sum * 100 / total_sum))
         if pct <= self._last_pct:
             return
         self._last_pct = pct

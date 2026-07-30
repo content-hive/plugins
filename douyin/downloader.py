@@ -32,7 +32,10 @@ async def _invoke_progress(on_progress: ProgressCallback | None, pct: int) -> No
 
 
 def _bind_media_progress(on_progress: ProgressCallback | None):
-    """Convert media byte progress to on_progress percent (0-100, monotonic)."""
+    """Convert media byte progress to on_progress percent (0-99, monotonic).
+
+    100 is reserved for the final callback after download_file succeeds.
+    """
     if on_progress is None:
         return None
 
@@ -42,7 +45,7 @@ def _bind_media_progress(on_progress: ProgressCallback | None):
         nonlocal last_pct
         if total is None or total <= 0:
             return
-        pct = min(100, int(downloaded * 100 / total))
+        pct = min(99, int(downloaded * 100 / total))
         if pct <= last_pct:
             return
         last_pct = pct

@@ -37,9 +37,9 @@ class ByteProgressAggregator:
         total_sum = 0
         has_known_total = False
         for downloaded, total in self._slots.values():
-            downloaded_sum += downloaded
             if total is not None and total > 0:
                 has_known_total = True
+                downloaded_sum += downloaded
                 total_sum += total
 
         if not has_known_total or total_sum <= 0:

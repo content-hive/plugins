@@ -1,0 +1,36 @@
+name: Tag plugin releases
+
+on:
+  push:
+    branches:
+      - main
+      - release
+
+permissions:
+  contents: write
+
+jobs:
+  tag-releases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tags for version bumps
+        run: |
+          mapfile -t tags < <(python3 scripts/print_new_tags.py)
+          if [[ ${#tags[@]} -eq 0 ]]; then
+            echo "No new plugin tags"
+            exit 0
+          fi
+          for tag in "${tags[@]}"; do
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              echo "Tag already exists: $tag"
+              continue
+            fi
+            git tag "$tag"
+            git push origin "$tag"
+            echo "Created tag: $tag"
+          done

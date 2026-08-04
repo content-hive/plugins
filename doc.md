@@ -189,7 +189,7 @@ docs/*
 - [ ] 新旧版本号
 - [ ] Breaking Changes（如有）
 - [ ] `manifest.json` 中 `version` 与本版 `release_notes` 已更新
-- [ ] CI 通过（`CHANGELOG.md` 由 merge 后 CI 写入，无需手改）
+- [ ] CI 通过（生成物由 PR 上 CI 回写，无需手改）
 
 ---
 
@@ -246,10 +246,11 @@ Tag 在合入对应渠道分支后打（Beta Tag 跟 `main`，Stable Tag 跟 `re
 ```
 开发者 → feature branch → PR → main
                               ↓
-         CI 校验 + 生成 registry.json
-         + 写入插件 / 根目录 CHANGELOG.md
+         CI：校验 + 生成并回写 PR（[generate]）
                               ↓
-                    merge 后自动提交生成物
+                    squash merge → main
+                              ↓
+                    CI：打插件 Tag（无新 commit）
                               ↓
                     Beta 用户（repo_ref=main）获取
 ```
@@ -259,12 +260,13 @@ Tag 在合入对应渠道分支后打（Beta Tag 跟 `main`，Stable Tag 跟 `re
 ```
 main 上测试完成
         ↓
-merge 到 release（版本须为正式版 x.y.z）
+PR → release（版本须为正式版 x.y.z）
         ↓
-CI 校验 + 生成 registry.json
-+ 写入插件 / 根目录 CHANGELOG.md
+CI：校验（--require-stable）+ 生成并回写 PR
         ↓
-merge 后自动提交生成物
+squash merge → release
+        ↓
+CI：打插件 Tag（无新 commit）
         ↓
 普通用户（repo_ref=release）获取
 ```
@@ -273,31 +275,32 @@ merge 后自动提交生成物
 
 ## 9. CI 自动化
 
-### 9.1 PR 时（校验，不改写仓库）
+脚本分工（共享逻辑在 `scripts/registry_lib.py`）：
 
-- 各插件 `manifest.json` 是否完整、JSON 合法
-- `domain` 是否与目录名一致
-- `version` 是否符合 SemVer，以及是否符合目标分支规则（若 PR 指向 `release`，拒绝 `-beta`）
-- `release_notes` 是否存在（升级 / 新插件应提供本版说明）
-- 插件目录结构是否正确
-- **重新生成** `registry.json` 后应与仓库中已有文件一致（若不一致则 fail，提示等待 merge 后由 bot 更新，或仅在生成物已过期时提示）
+| 脚本 | 职责 |
+|------|------|
+| `scripts/check_manifests.py` | 校验 manifest（`--require-stable` 拒预发布） |
+| `scripts/generate_registry.py` | 生成 `registry.json`、legacy、两处 CHANGELOG |
+| `scripts/print_new_tags.py` | 对比 `HEAD~1` 输出待打 Tag |
 
-PR 阶段以校验为主；**不在 PR 上由人类维护** `registry.json`、各插件 `CHANGELOG.md`、以及根目录 `CHANGELOG.md`。
+### 9.1 PR：`validate-and-sync`（同一 workflow，不拆）
 
-### 9.2 Merge 后（自动提交）
+触发：PR → `main` / `release`。
 
-合入 `main` 或 `release` 后，CI 自动：
+1. 仅支持同仓 PR（需向 PR 分支 push 生成物）
+2. 若最新 commit message **以 `[generate]` 开头** → 跳过（避免 bot 回写死循环）
+3. `check_manifests.py`（目标为 `release` 时加 `--require-stable`）
+4. `generate_registry.py`；若有变更 → bot commit/push：`[generate] regenerate registry`
 
-1. 扫描 `plugins/*/manifest.json`
-2. 注入 `path` 等派生字段
-3. 对比**旧** `registry.json` 与新生成结果，得出新增 / 更新 / 移除
-4. 生成 / 更新根目录 `registry.json`（含各插件当前 `release_notes`）
-5. 按第 10 节规则更新各 `plugins/<domain>/CHANGELOG.md`
-6. 按第 10 节规则更新根目录 `CHANGELOG.md`
-7. **自动提交**回当前分支（bot commit）
-8. （可选）创建插件 Tag
+开发者不必本地跑生成脚本；生成物由 CI 写回 PR。合并请用 **squash merge**，使 `main`/`release` 上一次提交包含源改动与生成物。
 
-生成文件禁止手改；唯一更新途径是 CI bot。
+### 9.2 合入后：`tag-releases`（只打 Tag，不 commit）
+
+触发：push → `main` / `release`。
+
+1. `print_new_tags.py` 找出 version 变化（含新增）的插件
+2. 创建并推送 `{domain}/v{version}`；已存在则跳过
+3. **不**修改工作区、**不**新增 commit
 
 ---
 
@@ -307,7 +310,7 @@ PR 阶段以校验为主；**不在 PR 上由人类维护** `registry.json`、�
 
 ### A. 根目录 CHANGELOG.md（Registry 级，CI 生成）
 
-路径：仓库根目录 `CHANGELOG.md`。每次 merge 后，CI 对比更新前的 `registry.json` 与新生成的索引，自动归类：
+路径：仓库根目录 `CHANGELOG.md`。PR 上 CI 生成时对比更新前的 `registry.json` 与新生成的索引，自动归类：
 
 | 对比结果 | 归入 |
 |----------|------|
@@ -406,7 +409,7 @@ plugins/
  └── fxtwitter/
        └── ...
 
-registry.json         # merge 后 CI 生成（含各插件本版 release_notes）
+registry.json         # PR 上 CI 生成并回写（含各插件本版 release_notes）
 CHANGELOG.md          # CI：对比 registry，记录 Added / Updated / Removed
 
 Tags:
@@ -428,4 +431,6 @@ Tags:
 
 ## 实施状态
 
-**Phase 1 已落地（本地）：** 目录迁入 `plugins/`、分插件 `manifest.json` 纳入版本控制、`scripts/generate_registry.py` 生成 `registry.json` 并双写兼容用的 `plugins-manifest.json`。CI 自动提交与主程序改读 `registry.json` 仍待后续阶段。
+**Phase 1 已落地：** 目录迁入 `plugins/`、分插件 `manifest.json` 纳入版本控制、本地 `scripts/generate_registry.py` 生成索引并双写 `plugins-manifest.json`。
+
+**Phase 2 已落地：** `validate-and-sync`（PR 校验 + CI 回写生成物）、`tag-releases`（合入 `main`/`release` 后打插件 Tag）；脚本拆为 `registry_lib` / `generate_registry` / `check_manifests` / `print_new_tags`。主程序改读 `registry.json` 仍待后续阶段。

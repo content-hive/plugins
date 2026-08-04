@@ -1,0 +1,37 @@
+name: Validate manifests
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure same-repository PR
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "Only same-repository PRs are supported."
+          exit 1
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Check manifests
+        run: |
+          args=()
+          if [[ "${{ github.base_ref }}" == "release" ]]; then
+            args+=(--require-stable)
+          fi
+          python3 scripts/check_manifests.py "${args[@]}"

@@ -422,15 +422,17 @@ Tags:
 
 ## 12. 与主程序的约定
 
-- 中心索引文件名为 `registry.json`（实施时同步修改主程序下载器；当前代码仍使用 `plugins-manifest.json`）
-- 用户通过 `plugins.repo_ref` 选择 `main` 或 `release`，无需协议层 `channel` 字段
-- 检查更新时，可将远程条目中的 `release_notes` 一并返回给前端，用于展示目标版本说明
+- 中心索引文件名为 `registry.json`
+- 用户通过 `plugins.repo_ref` 选择渠道：`release` = Stable（默认），`main` = Beta；无需协议层 `channel` 字段
+- 检查更新时，远程条目中的 `release_notes` 一并返回给前端，用于展示目标版本说明
 - 后续若增加 `min_core_version` / `api_version` 等兼容字段，写在分插件 `manifest.json` 中，由 CI 一并汇总
 
 ---
 
 ## 实施状态
 
-**Phase 1 已落地：** 目录迁入 `plugins/`、分插件 `manifest.json` 纳入版本控制、本地 `scripts/generate_registry.py` 生成索引并双写 `plugins-manifest.json`。
+**Phase 1 已落地：** 目录迁入 `plugins/`、分插件 `manifest.json` 纳入版本控制、`scripts/generate_registry.py` 生成 `registry.json`。
 
-**Phase 2 已落地：** `validate-and-sync`（PR 校验 + CI 回写生成物）、`tag-releases`（合入 `main`/`release` 后打插件 Tag）；脚本拆为 `registry_lib` / `generate_registry` / `check_manifests` / `print_new_tags`。主程序改读 `registry.json` 仍待后续阶段。
+**Phase 2 已落地：** `validate-and-sync`（PR 校验 + CI 回写生成物）、`tag-releases`（合入后打 Tag）；脚本拆为 `registry_lib` / `generate_registry` / `check_manifests` / `print_new_tags`。
+
+**Phase 3–4 已落地：** Content Hive 只读 `registry.json`、安装拷贝源 manifest、API 返回 `release_notes`；渠道为 `main`（Beta）/ `release`（Stable），默认 `repo_ref=release`；已去掉 `plugins-manifest.json` 双写。`develop` 不再作为分发渠道。

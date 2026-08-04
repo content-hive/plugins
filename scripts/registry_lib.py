@@ -390,19 +390,22 @@ def _git_show(path: str, ref: str = "HEAD~1") -> str | None:
 
 
 def compute_new_tags(*, parent_ref: str = "HEAD~1") -> list[str]:
-    """Return tag names for domains whose version changed since parent_ref."""
+    """Return tag names for domains whose version changed since parent_ref.
+
+    If parent_ref has no registry.json, return [] (explicit skip) instead of
+    treating every plugin as new — that would mass-tag on history gaps.
+    """
     current = load_json(REGISTRY_PATH)
     if current is None:
         raise RegistryError(f"Missing {REGISTRY_PATH}")
 
     parent_text = _git_show("registry.json", parent_ref)
     if parent_text is None:
-        old_index: dict[str, str] = {}
-    else:
-        old_index = plugin_index_from_registry(
-            load_json_text(parent_text, source=f"{parent_ref}:registry.json")
-        )
+        return []
 
+    old_index = plugin_index_from_registry(
+        load_json_text(parent_text, source=f"{parent_ref}:registry.json")
+    )
     new_index = plugin_index_from_registry(current)
     tags: list[str] = []
     for domain, version in sorted(new_index.items()):

@@ -288,9 +288,8 @@ CI：打插件 Tag（无新 commit）
 触发：PR → `main` / `release`。
 
 1. 仅支持同仓 PR（需向 PR 分支 push 生成物）
-2. 若最新 commit message **以 `[generate]` 开头** → 跳过（避免 bot 回写死循环）
-3. `check_manifests.py`（目标为 `release` 时加 `--require-stable`）
-4. `generate_registry.py`；若有变更 → bot commit/push：`[generate] regenerate registry`
+2. `check_manifests.py`（目标为 `release` 时加 `--require-stable`）
+3. `generate_registry.py`；若有变更 → bot commit/push：`[generate] regenerate registry`（使用 `GITHUB_TOKEN`，不会再次触发本 workflow，故无需按 commit message 跳过）
 
 开发者不必本地跑生成脚本；生成物由 CI 写回 PR。合并请用 **squash merge**，使 `main`/`release` 上一次提交包含源改动与生成物。
 

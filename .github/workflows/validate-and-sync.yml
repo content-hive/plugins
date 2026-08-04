@@ -29,19 +29,7 @@ jobs:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Skip bot generate commits
-        id: skip
-        run: |
-          msg="$(git log -1 --pretty=%s)"
-          echo "head_commit=$msg"
-          if [[ "$msg" == \[generate\]* ]]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Check manifests
-        if: steps.skip.outputs.skip != 'true'
         run: |
           args=()
           if [[ "${{ github.base_ref }}" == "release" ]]; then
@@ -50,11 +38,9 @@ jobs:
           python3 scripts/check_manifests.py "${args[@]}"
 
       - name: Generate registry
-        if: steps.skip.outputs.skip != 'true'
         run: python3 scripts/generate_registry.py
 
       - name: Commit and push generated files
-        if: steps.skip.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

@@ -1,0 +1,86 @@
+name: Automerge
+
+on:
+  pull_request:
+    types:
+      - labeled
+    branches:
+      - main
+      - release
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: github.event.label.name == 'automerge'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure same-repository PR
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "Only same-repository PRs are supported (automerge must push generated files before squash)."
+          exit 1
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check manifests
+        run: |
+          args=()
+          if [[ "${{ github.base_ref }}" == "release" ]]; then
+            args+=(--require-stable)
+          fi
+          python3 scripts/check_manifests.py "${args[@]}"
+
+      - name: Generate registry
+        run: python3 scripts/generate_registry.py
+
+      - name: Commit and push generated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add registry.json CHANGELOG.md plugins/*/CHANGELOG.md
+          if git diff --staged --quiet; then
+            echo "No generated file changes"
+          else
+            git commit -m "[generate] regenerate registry"
+            git push
+          fi
+
+      - name: Squash merge PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" \
+            --squash \
+            --delete-branch \
+            --subject "$PR_TITLE"
+
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create tags for version bumps
+        run: bash scripts/create_plugin_tags.sh
+
+      - name: Report failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          number="${{ github.event.pull_request.number }}"
+          gh pr comment "$number" --body "$(cat <<'EOF'
+          Automerge failed. See the workflow run for details, fix the PR, then re-add the `automerge` label.
+          EOF
+          )"
+          gh pr edit "$number" --remove-label automerge || true

@@ -1,0 +1,22 @@
+name: Tag plugin releases
+
+on:
+  push:
+    branches:
+      - main
+      - release
+
+permissions:
+  contents: write
+
+jobs:
+  tag-releases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tags for version bumps
+        run: bash scripts/create_plugin_tags.sh

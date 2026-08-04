@@ -5,7 +5,7 @@ Plugin registry for [Content Hive](https://github.com/content-hive/content-hive)
 ## Layout
 
 ```
-plugins/
+repository/
 ├── plugins/
 │   ├── <domain>/
 │   │   ├── manifest.json   # hand-written source of truth

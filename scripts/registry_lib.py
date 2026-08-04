@@ -11,7 +11,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGINS_DIR = REPO_ROOT / "plugins"
 REGISTRY_PATH = REPO_ROOT / "registry.json"
-LEGACY_MANIFEST_PATH = REPO_ROOT / "plugins-manifest.json"
 ROOT_CHANGELOG_PATH = REPO_ROOT / "CHANGELOG.md"
 
 REQUIRED_FIELDS = (
@@ -145,12 +144,6 @@ def build_registry_entry(manifest: dict) -> dict:
     }
     if "disclaimer" in manifest:
         entry["disclaimer"] = manifest["disclaimer"]
-    return entry
-
-
-def build_legacy_entry(registry_entry: dict) -> dict:
-    entry = dict(registry_entry)
-    entry["enabled"] = True
     return entry
 
 
@@ -355,8 +348,6 @@ def generate_registry() -> int:
     """Write registry artifacts. Returns number of plugins."""
     had_registry = REGISTRY_PATH.exists()
     old_registry = load_json(REGISTRY_PATH)
-    if old_registry is None:
-        old_registry = load_json(LEGACY_MANIFEST_PATH)
     old_index = plugin_index_from_registry(old_registry)
 
     manifests = discover_plugins()
@@ -370,14 +361,8 @@ def generate_registry() -> int:
         "generated_at": generated_at,
         "plugins": registry_plugins,
     }
-    legacy = {
-        "version": "1.0.0",
-        "repository": "github.com/content-hive/plugins",
-        "plugins": [build_legacy_entry(p) for p in registry_plugins],
-    }
 
     write_json(REGISTRY_PATH, registry)
-    write_json(LEGACY_MANIFEST_PATH, legacy)
 
     for manifest in manifests:
         update_plugin_changelog(manifest["domain"], manifest["version"], manifest["release_notes"])
@@ -405,24 +390,22 @@ def _git_show(path: str, ref: str = "HEAD~1") -> str | None:
 
 
 def compute_new_tags(*, parent_ref: str = "HEAD~1") -> list[str]:
-    """Return tag names for domains whose version changed since parent_ref."""
+    """Return tag names for domains whose version changed since parent_ref.
+
+    If parent_ref has no registry.json, return [] (explicit skip) instead of
+    treating every plugin as new — that would mass-tag on history gaps.
+    """
     current = load_json(REGISTRY_PATH)
     if current is None:
         raise RegistryError(f"Missing {REGISTRY_PATH}")
 
     parent_text = _git_show("registry.json", parent_ref)
     if parent_text is None:
-        parent_text = _git_show("plugins-manifest.json", parent_ref)
-        old_index = (
-            plugin_index_from_registry(load_json_text(parent_text, source=parent_ref))
-            if parent_text
-            else {}
-        )
-    else:
-        old_index = plugin_index_from_registry(
-            load_json_text(parent_text, source=f"{parent_ref}:registry.json")
-        )
+        return []
 
+    old_index = plugin_index_from_registry(
+        load_json_text(parent_text, source=f"{parent_ref}:registry.json")
+    )
     new_index = plugin_index_from_registry(current)
     tags: list[str] = []
     for domain, version in sorted(new_index.items()):

@@ -2,6 +2,15 @@
 
 Plugin registry for [Content Hive](https://github.com/content-hive/content-hive): platform parsers distributed as independent plugins.
 
+## Channels
+
+| Channel | Branch (`repo_ref`) | Audience |
+|---------|---------------------|----------|
+| Stable (default) | `release` | Normal users |
+| Beta | `main` | Testers / early adopters |
+
+`develop` is not a distribution channel.
+
 ## Layout
 
 ```
@@ -12,11 +21,10 @@ repository/
 │   │   ├── CHANGELOG.md    # generated — do not edit
 │   │   └── ...
 │   └── ...
-├── registry.json           # generated index (target format)
-├── plugins-manifest.json   # generated legacy index (dual-write)
+├── registry.json           # generated index
 ├── CHANGELOG.md            # generated registry-level changelog
 ├── scripts/
-│   ├── registry_lib.py     # shared logic
+│   ├── registry_lib.py
 │   ├── generate_registry.py
 │   ├── check_manifests.py
 │   └── print_new_tags.py
@@ -44,12 +52,9 @@ repository/
 2. When releasing: bump `version` and rewrite `release_notes` (current version only)
 3. Open a PR targeting `main` (beta) or `release` (stable)
 
-You do **not** need to run the generator locally. On the PR, CI:
+You do **not** need to run the generator locally. On the PR, CI validates manifests and regenerates indexes/changelogs (bot commit starting with `[generate]` if needed).
 
-- validates manifests (`check_manifests.py`; `--require-stable` when the base is `release`)
-- regenerates indexes/changelogs and pushes a commit starting with `[generate]` if needed
-
-**Prefer squash merge** so `main` / `release` get a single commit with sources and generated files. After merge, CI creates tags like `douyin/v0.1.9` for version bumps (no extra commit).
+**Prefer squash merge.** After merge, CI creates tags like `douyin/v0.1.9` for version bumps.
 
 Optional local preview:
 
@@ -58,9 +63,7 @@ python3 scripts/check_manifests.py
 python3 scripts/generate_registry.py
 ```
 
-Do **not** hand-edit `registry.json`, `plugins-manifest.json`, root `CHANGELOG.md`, or `plugins/*/CHANGELOG.md`.
-
-`plugins-manifest.json` is a temporary dual-write for Content Hive downloaders that still expect that filename. Prefer `registry.json` going forward.
+Do **not** hand-edit `registry.json`, root `CHANGELOG.md`, or `plugins/*/CHANGELOG.md`.
 
 ## Design
 

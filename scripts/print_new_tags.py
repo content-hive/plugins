@@ -24,6 +24,16 @@ def has_parent() -> bool:
     return result.returncode == 0
 
 
+def has_parent_registry(parent_ref: str) -> bool:
+    result = subprocess.run(
+        ["git", "show", f"{parent_ref}:registry.json"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Print new plugin tags since parent commit")
     parser.add_argument(
@@ -35,6 +45,12 @@ def main() -> int:
     try:
         if args.parent == "HEAD~1" and not has_parent():
             print("No parent commit; skipping tags", file=sys.stderr)
+            return 0
+        if not has_parent_registry(args.parent):
+            print(
+                f"No {args.parent}:registry.json; skipping tags",
+                file=sys.stderr,
+            )
             return 0
         for tag in compute_new_tags(parent_ref=args.parent):
             print(tag)

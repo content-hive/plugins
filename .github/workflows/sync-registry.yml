@@ -27,15 +27,6 @@ permissions:
 
 jobs:
   sync-registry:
-    # GITHUB_TOKEN pushes do not start new workflow runs. Bot [generate] commits are
-    # skipped entirely when somehow triggered (e.g. PAT). Tag recovery is manual via
-    # workflow_dispatch mode=tags-only — do not rely on a follow-up push run.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      !(
-        startsWith(github.event.head_commit.message, '[generate]') &&
-        github.event.head_commit.author.email == '41898282+github-actions[bot]@users.noreply.github.com'
-      )
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

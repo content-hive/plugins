@@ -304,7 +304,7 @@ push 触发 sync-registry：生成 → bot commit → Tag
 正常 push 路径：
 
 1. `check_manifests.py`（当前分支为 `release` 时 `--require-stable`）
-2. `generate_registry.py`；若有变更 → commit/push：`[generate] regenerate registry`（使用 `GITHUB_TOKEN`，**不会**再触发新的 workflow run）
+2. `generate_registry.py`；若有变更 → commit/push：`[CI/CD] Regenerate registry`（使用 `GITHUB_TOKEN`，**不会**再触发新的 workflow run）
 3. 在 tip 上运行 `create_plugin_tags.sh`（对比 parent 的 `registry.json` 打 `domain/vX.Y.Z`）；**任一步失败则 job 失败**
 
 开发者不必本地跑生成脚本。可用网页或 `gh` 正常合入 PR；**以 `sync-registry` 成功为准** 才算渠道索引已更新。同一 ref 使用 concurrency group，避免并行 generate 互相覆盖。

@@ -55,7 +55,7 @@ repository/
 4. Merge normally (squash/merge via GitHub UI or `gh`)
 5. Wait for the `sync-registry` workflow on the base branch to turn green — that job regenerates `registry.json` / changelogs and creates tags like `douyin/v0.1.9`. If tagging fails after the generate commit is already pushed, do **not** re-run that failed job; use Actions → Sync registry → Run workflow with mode `tags-only` on the branch tip.
 
-You do **not** need to run the generator locally. PR CI only validates manifests. After merge, `sync-registry` writes generated files in a follow-up `[generate]` commit when needed.
+You do **not** need to run the generator locally. PR CI only validates manifests. After merge, `sync-registry` writes generated files in a follow-up `[CI/CD] Regenerate registry` commit when needed.
 
 Optional local preview:
 

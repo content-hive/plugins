@@ -296,14 +296,27 @@ push 触发 sync-registry：生成 → bot commit → Tag
 
 ### 9.2 合入后：`sync-registry`（生成 + Tag）
 
-触发：push → `main` / `release`。
+触发：
 
-1. 若 head commit 同时满足：message 以 `[generate]` 开头 **且** author 为 `github-actions[bot]` → **跳过**校验与生成（避免 bot push 死循环），但 **仍执行打 Tag**（已存在的 tag 会跳过，便于生成已成功、打 tag 失败时自动补打）
-2. 否则：`check_manifests.py`（当前分支为 `release` 时 `--require-stable`）
+- push → `main` / `release`（正常发版）
+- `workflow_dispatch`（手动）：`full` 或 `tags-only`
+
+正常 push 路径：
+
+1. 若 head commit 同时满足：message 以 `[generate]` 开头 **且** author 为 `github-actions[bot]` → **整 job skip**（`GITHUB_TOKEN` 的 push 本就不会触发新 run；此条件仅作防护。人为 commit 即使标题以 `[generate]` 开头也会完整执行）
+2. `check_manifests.py`（当前分支为 `release` 时 `--require-stable`）
 3. `generate_registry.py`；若有变更 → commit/push：`[generate] regenerate registry`
-4. 在 tip 上运行 `create_plugin_tags.sh`（对比 parent 的 `registry.json` 打 `domain/vX.Y.Z`）
+4. 在 tip 上运行 `create_plugin_tags.sh`（对比 parent 的 `registry.json` 打 `domain/vX.Y.Z`）；**任一步失败则 job 失败**
 
-开发者不必本地跑生成脚本。可用网页或 `gh` 正常合入 PR；**以 `sync-registry` 成功为准** 才算渠道索引已更新。同一 ref 使用 concurrency group，避免并行 generate 互相覆盖。人为 commit 即使标题以 `[generate]` 开头也不会跳过生成。
+开发者不必本地跑生成脚本。可用网页或 `gh` 正常合入 PR；**以 `sync-registry` 成功为准** 才算渠道索引已更新。同一 ref 使用 concurrency group，避免并行 generate 互相覆盖。
+
+**不要依赖「generate push 再跑一次 workflow」来补救**：默认 `GITHUB_TOKEN` 推送不会创建新的 workflow run。
+
+若 **生成已 push、打 tag 失败**：
+
+1. **不要** Re-run 那次失败的 push job（仍按旧 event SHA checkout，再 push 常会 non-fast-forward）
+2. 在 Actions → **Sync registry** → Run workflow：选对应分支，mode = **`tags-only`**
+3. 该模式只在当前分支 tip 上幂等补打缺失的 `domain/vX.Y.Z`（已存在的 tag 会跳过）
 
 若启用 Branch protection 且禁止默认 `GITHUB_TOKEN` 直推，需另行配置允许 Actions 写入的 PAT / GitHub App。
 

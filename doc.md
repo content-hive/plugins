@@ -298,12 +298,12 @@ push 触发 sync-registry：生成 → bot commit → Tag
 
 触发：push → `main` / `release`。
 
-1. 若 head commit message 以 `[generate]` 开头 → **整 job skip**（避免 bot push 死循环）
-2. `check_manifests.py`（当前分支为 `release` 时 `--require-stable`）
+1. 若 head commit 同时满足：message 以 `[generate]` 开头 **且** author 为 `github-actions[bot]` → **跳过**校验与生成（避免 bot push 死循环），但 **仍执行打 Tag**（已存在的 tag 会跳过，便于生成已成功、打 tag 失败时自动补打）
+2. 否则：`check_manifests.py`（当前分支为 `release` 时 `--require-stable`）
 3. `generate_registry.py`；若有变更 → commit/push：`[generate] regenerate registry`
 4. 在 tip 上运行 `create_plugin_tags.sh`（对比 parent 的 `registry.json` 打 `domain/vX.Y.Z`）
 
-开发者不必本地跑生成脚本。可用网页或 `gh` 正常合入 PR；**以 `sync-registry` 成功为准** 才算渠道索引已更新。同一 ref 使用 concurrency group，避免并行 generate 互相覆盖。
+开发者不必本地跑生成脚本。可用网页或 `gh` 正常合入 PR；**以 `sync-registry` 成功为准** 才算渠道索引已更新。同一 ref 使用 concurrency group，避免并行 generate 互相覆盖。人为 commit 即使标题以 `[generate]` 开头也不会跳过生成。
 
 若启用 Branch protection 且禁止默认 `GITHUB_TOKEN` 直推，需另行配置允许 Actions 写入的 PAT / GitHub App。
 

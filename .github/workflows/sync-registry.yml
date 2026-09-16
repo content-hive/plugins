@@ -15,7 +15,6 @@ permissions:
 
 jobs:
   sync-registry:
-    if: ${{ !startsWith(github.event.head_commit.message, '[generate]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,7 +23,23 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Only bot [generate] commits skip regenerate (avoid loops). Still run tagging
+      # so a failed tag step can be retried when the generate push re-triggers this job.
+      - name: Detect bot generate commit
+        id: meta
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMMIT_EMAIL: ${{ github.event.head_commit.author.email }}
+        run: |
+          bot_email="41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ "$COMMIT_MSG" == \[generate\]* && "$COMMIT_EMAIL" == "$bot_email" ]]; then
+            echo "skip_generate=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip_generate=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check manifests
+        if: steps.meta.outputs.skip_generate != 'true'
         run: |
           args=()
           if [[ "${{ github.ref_name }}" == "release" ]]; then
@@ -33,9 +48,11 @@ jobs:
           python3 scripts/check_manifests.py "${args[@]}"
 
       - name: Generate registry
+        if: steps.meta.outputs.skip_generate != 'true'
         run: python3 scripts/generate_registry.py
 
       - name: Commit and push generated files
+        if: steps.meta.outputs.skip_generate != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

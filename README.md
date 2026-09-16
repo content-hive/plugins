@@ -53,7 +53,7 @@ repository/
 2. When releasing: bump `version` and rewrite `release_notes` (current version only)
 3. Open a PR targeting `main` (beta). Promote to Stable with a separate PR from `main` → `release`; do not send feature PRs to `release`.
 4. Merge normally (merge commit via GitHub UI or `gh`)
-5. Wait for the `sync-registry` workflow on the base branch to turn green — that job regenerates `registry.json` / changelogs and creates tags like `douyin/v0.1.9`. If tagging fails after the generate commit is already pushed, do **not** re-run that failed job; while the branch tip is still that generate commit, use Actions → Sync registry → Run workflow with mode `tags-only`. That mode only tags version diffs versus `HEAD~1`; it will not recover tags missed on older commits.
+5. Wait for the `sync-registry` workflow on the base branch to turn green — that job regenerates `registry.json` / changelogs and creates tags like `douyin/v0.1.9`. If tagging fails after the generate commit is already pushed, do **not** re-run that failed job; while the branch tip is still that generate commit, use Actions → Sync registry → Run workflow with mode `tags-only`. That mode only tags version diffs versus `HEAD~1`. If the tip has already moved on, do **not** reset / force-push `main` or `release` — manually create each missing `domain/vX.Y.Z` tag pointing at that generate commit (see [doc.md](doc.md) §9.2).
 
 You do **not** need to run the generator locally. PR CI only validates manifests. After merge, `sync-registry` writes generated files in a follow-up `[CI/CD] Sync plugin registry` commit when needed.
 

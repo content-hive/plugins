@@ -370,7 +370,15 @@ push 触发 sync-registry：生成 → bot commit → Tag
 2. **在 tip 仍停在那次 generate commit 时**，于 Actions → **Sync registry** → Run workflow：选 **`main` 或 `release`**，mode = **`tags-only`**
 3. 该模式**不再 generate**，只把当前 tip 的 `registry.json` 与 **`HEAD~1:registry.json`** 的版本差打成 `domain/vX.Y.Z`；本地或远端已存在的 tag 会跳过
 
-`tags-only` **不能**补打更早 commit 漏掉的 tag。若 generate 成功、tag 失败之后又合入了新的 PR，需要维护者按当时漏掉的 `domain/vX.Y.Z` 手工补打，或把 tip 重置到那次 generate commit 再跑 `tags-only`。
+`tags-only` **不能**补打更早 commit 漏掉的 tag。若 tip 已经前进，**不要**为了补 tag 去 reset / force-push 共享的 `main` / `release`（会丢掉后续 merge，且通常被 branch protection 拦住）。这时只做**手工补打**：从失败的 `sync-registry` 日志或该次 `[CI/CD] Sync plugin registry` commit 的 `registry.json` diff 确认漏掉的 `domain/vX.Y.Z`，把 tag 指到那次 generate commit（不必改动任何分支 tip）：
+
+```bash
+GENERATE_SHA=<那次 Sync plugin registry 的 commit>
+git tag douyin/v0.1.9 "$GENERATE_SHA"      # 按实际漏掉的 tag 替换
+git push origin douyin/v0.1.9
+```
+
+已存在的同名 tag 不要覆盖（`--force`）。不要为了补 tag 在本地 checkout 历史 commit 再跑 `create_plugin_tags.sh`——那只适合 tip 未前进时由 Actions 的 `tags-only` 完成。
 
 若启用 Branch protection 且禁止默认 `GITHUB_TOKEN` 直推，需另行配置允许 Actions 写入的 PAT / GitHub App。
 

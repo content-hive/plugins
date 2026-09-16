@@ -299,7 +299,7 @@ push 触发 sync-registry：生成 → bot commit → Tag
 触发：
 
 - push → `main` / `release`（正常发版）
-- `workflow_dispatch`（手动）：`full` 或 `tags-only`；**必须选择 `main` 或 `release` 分支**（`push.branches` 过滤不作用于手动触发，job 内会拒绝其它分支）
+- `workflow_dispatch`（手动）：`full` 或 `tags-only`；**必须选择 `main` 或 `release`**（job 有 `if: ref_name == main || release`；选其它分支会 skip。`push.branches` 不限制手动触发）
 
 正常 push 路径：
 

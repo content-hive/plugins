@@ -162,7 +162,14 @@ chore/*
 docs/*
 ```
 
-例如：`feat/add-camera-plugin`、`fix/weather-crash`、`chore/update-registry`。
+改插件时，分支名应带上插件 **domain**（或可读的插件名），便于一 PR 一插件、也方便扫列表：
+
+- `feat/<domain>-…` / `fix/<domain>-…`（推荐）
+- 或沿用历史风格：`plugin/<domain>`（仅当整段工作都围着该插件时）
+
+例如：`feat/douyin-cookie-refresh`、`fix/xiaohongshu-short-link`、`chore/twitter-bump-version`。
+
+非插件改动（CI、文档、仓库级脚本）可不带 domain，例如：`docs/update-registry-doc`、`chore/ci-sync-registry`。
 
 流程：`feature branch` → PR → `main`。
 

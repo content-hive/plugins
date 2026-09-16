@@ -30,9 +30,8 @@ repository/
 │   ├── print_new_tags.py
 │   └── create_plugin_tags.sh
 ├── .github/workflows/
-│   ├── validate.yml      # PR → main/release (manifests only)
-│   ├── automerge.yml     # label automerge → generate + squash + tags
-│   └── tag-releases.yml  # push → main/release (fallback tags)
+│   ├── validate.yml       # PR → main/release (manifests only)
+│   └── sync-registry.yml  # push → main/release (generate + tags)
 └── doc.md
 ```
 
@@ -53,9 +52,10 @@ repository/
 1. Change code and/or `plugins/<domain>/manifest.json`
 2. When releasing: bump `version` and rewrite `release_notes` (current version only)
 3. Open a PR targeting `main` (beta) or `release` (stable)
-4. When ready to land: add the `automerge` label (do **not** use the GitHub UI merge button)
+4. Merge normally (squash/merge via GitHub UI or `gh`)
+5. Wait for the `sync-registry` workflow on the base branch to turn green — that job regenerates `registry.json` / changelogs and creates tags like `douyin/v0.1.9`
 
-You do **not** need to run the generator locally. PR CI only validates manifests. Applying `automerge` runs generate, squash-merges into the base branch as a single commit (including generated files), and creates tags like `douyin/v0.1.9` for version bumps.
+You do **not** need to run the generator locally. PR CI only validates manifests. After merge, `sync-registry` writes generated files in a follow-up `[generate]` commit when needed.
 
 Optional local preview:
 

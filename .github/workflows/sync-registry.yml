@@ -1,0 +1,76 @@
+name: Sync registry
+
+on:
+  push:
+    branches:
+      - main
+      - release
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: >
+          full = validate, generate, push, tag (default).
+          tags-only = retry missing plugin tags on the selected branch tip
+          (use after a failed tag step; do not re-run the failed push job).
+        type: choice
+        options:
+          - full
+          - tags-only
+        default: full
+
+concurrency:
+  group: sync-registry-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync-registry:
+    if: github.ref_name == 'main' || github.ref_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.ref }}
+
+      - name: Resolve mode
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "mode=${{ inputs.mode }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check manifests
+        if: steps.meta.outputs.mode == 'full'
+        run: |
+          args=()
+          if [[ "${{ github.ref_name }}" == "release" ]]; then
+            args+=(--require-stable)
+          fi
+          python3 scripts/check_manifests.py "${args[@]}"
+
+      - name: Generate registry
+        if: steps.meta.outputs.mode == 'full'
+        run: python3 scripts/generate_registry.py
+
+      - name: Commit and push generated files
+        if: steps.meta.outputs.mode == 'full'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add registry.json CHANGELOG.md plugins/*/CHANGELOG.md
+          if git diff --staged --quiet; then
+            echo "No generated file changes"
+          else
+            git commit -m "[CI/CD] Sync plugin registry"
+            git push
+          fi
+
+      - name: Create tags for version bumps
+        run: bash scripts/create_plugin_tags.sh

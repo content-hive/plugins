@@ -1,0 +1,13 @@
+{
+  "domain": "threads",
+  "name": "Threads",
+  "version": "0.1.1",
+  "description": "A Threads content parsing plugin for Content Hive. Parses post URLs to extract text, images, videos, and author information via mobile page scraping. Supports optional cookie authentication for accessing restricted content.",
+  "author": [
+    "content-hive"
+  ],
+  "requirements": [],
+  "config_flow": false,
+  "disclaimer": "This plugin fetches content via Threads mobile page scraping. Cookie authentication may carry the risk of account suspension. Please ensure compliance with Threads' Terms of Service and applicable local laws before use. Platform policy changes may cause the plugin to stop working.",
+  "release_notes": "Registry migration: track per-plugin manifest."
+}

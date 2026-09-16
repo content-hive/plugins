@@ -217,4 +217,6 @@ __marimo__/
 
 # Runtime data for plugins
 plugins.yaml
-**/manifest.json
+
+# Per-plugin manifests under plugins/<domain>/ are tracked source of truth.
+# Do not ignore plugins/**/manifest.json.

@@ -1,0 +1,13 @@
+{
+  "domain": "instagram",
+  "name": "Instagram",
+  "version": "0.1.2",
+  "description": "An Instagram content parsing plugin for Content Hive. Fetches post content, images, videos, reels, and author information. Requires authentication via sessionid cookie (private API).",
+  "author": [
+    "content-hive"
+  ],
+  "requirements": [],
+  "config_flow": false,
+  "disclaimer": "This plugin fetches content via Instagram APIs. Please ensure compliance with Instagram's Terms of Service and applicable local laws before use. Platform policy changes may cause the plugin to stop working.",
+  "release_notes": "Registry migration: track per-plugin manifest."
+}

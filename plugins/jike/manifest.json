@@ -1,0 +1,12 @@
+{
+  "domain": "jike",
+  "name": "即刻",
+  "version": "0.1.1",
+  "description": "适用于 Content Hive 的即刻内容解析插件，支持图文、Live Photo 及视频帖子的内容解析。",
+  "author": [
+    "content-hive"
+  ],
+  "requirements": [],
+  "config_flow": false,
+  "release_notes": "Registry migration: track per-plugin manifest."
+}

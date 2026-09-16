@@ -1,0 +1,12 @@
+{
+  "domain": "fxtwitter",
+  "name": "X(Twitter)",
+  "version": "0.1.8",
+  "description": "An X(Twitter) content parsing plugin for Content Hive. Parses Twitter/X.com status URLs to extract post content, images, videos, and author information via the fxtwitter API.",
+  "author": [
+    "content-hive"
+  ],
+  "requirements": [],
+  "config_flow": false,
+  "release_notes": "Registry migration: track per-plugin manifest."
+}

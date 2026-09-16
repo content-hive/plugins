@@ -31,7 +31,6 @@ SEMVER_RE = re.compile(
 )
 VERSION_HEADING_RE = re.compile(r"^##\s+(\S+)\s*$", re.MULTILINE)
 DATE_HEADING_RE = re.compile(r"^##\s+(\d{4}-\d{2}-\d{2})\s*$", re.MULTILINE)
-PRE_RELEASE_RE = re.compile(r"-")
 
 
 class RegistryError(Exception):
@@ -61,7 +60,7 @@ def load_json_text(text: str, *, source: str) -> dict:
 
 
 def plugin_index_from_registry(data: dict | None) -> dict[str, str]:
-    """Map domain -> version from a registry or legacy manifest."""
+    """Map domain -> version from registry.json."""
     if not data:
         return {}
     result: dict[str, str] = {}
@@ -87,10 +86,12 @@ def validate_manifest(domain_dir: Path, data: dict, *, require_stable: bool = Fa
         )
 
     version = data["version"]
-    if not isinstance(version, str) or not SEMVER_RE.match(version):
+    match = SEMVER_RE.match(version) if isinstance(version, str) else None
+    if not match:
         raise RegistryError(f"{domain_dir / 'manifest.json'}: invalid SemVer '{version}'")
 
-    if require_stable and PRE_RELEASE_RE.search(version):
+    # group(4) is the SemVer pre-release label (before optional +build metadata)
+    if require_stable and match.group(4):
         raise RegistryError(
             f"{domain_dir / 'manifest.json'}: pre-release version '{version}' is not allowed on stable channel"
         )

@@ -189,7 +189,7 @@ docs/*
 - [ ] 新旧版本号
 - [ ] Breaking Changes（如有）
 - [ ] `manifest.json` 中 `version` 与本版 `release_notes` 已更新
-- [ ] CI 通过（校验）；合入时贴 `automerge`（生成物由 automerge 写入 squash commit，无需手改）
+- [ ] CI 通过（校验）；合入后确认 `sync-registry` 变绿（生成物由 push 后 CI 写入，无需手改）
 
 ---
 
@@ -246,14 +246,16 @@ Tag 在合入对应渠道分支后打（Beta Tag 跟 `main`，Stable Tag 跟 `re
 ```
 开发者 → feature branch → PR → main
                               ↓
-                    CI：校验 manifests
+                    CI：校验 manifests（validate）
                               ↓
-              贴 automerge label（勿用网页合入）
+              人工 squash / merge 合入 main
                               ↓
-    bot：生成 → squash 成 1 个 commit → main → 同 job 打 Tag
+         push 触发 sync-registry：生成 → bot commit → Tag
                               ↓
                     Beta 用户（repo_ref=main）获取
 ```
+
+合入后须确认 `sync-registry` workflow 变绿，才算发布完成（merge 瞬间 `registry.json` 可能仍短暂落后）。
 
 ### 8.2 Stable（`release`）
 
@@ -264,9 +266,9 @@ PR → release（版本须为正式版 x.y.z）
         ↓
 CI：校验 manifests（--require-stable）
         ↓
-贴 automerge label（勿用网页合入）
+人工 squash / merge 合入 release
         ↓
-bot：生成 → squash → release → 同 job 打 Tag
+push 触发 sync-registry：生成 → bot commit → Tag
         ↓
 普通用户（repo_ref=release）获取
 ```
@@ -280,7 +282,7 @@ bot：生成 → squash → release → 同 job 打 Tag
 | 脚本 | 职责 |
 |------|------|
 | `scripts/check_manifests.py` | 校验 manifest（`--require-stable` 拒预发布） |
-| `scripts/generate_registry.py` | 生成 `registry.json`、legacy、两处 CHANGELOG |
+| `scripts/generate_registry.py` | 生成 `registry.json`、两处 CHANGELOG |
 | `scripts/print_new_tags.py` | 对比 `HEAD~1` 输出待打 Tag |
 | `scripts/create_plugin_tags.sh` | 创建并推送 `print_new_tags.py` 列出的 Tag |
 
@@ -290,28 +292,32 @@ bot：生成 → squash → release → 同 job 打 Tag
 
 1. 仅支持同仓 PR
 2. `check_manifests.py`（目标为 `release` 时加 `--require-stable`）
-3. **不**生成、**不**回写 PR 分支（日常迭代本地与远端保持一致）
+3. **不**生成、**不**回写 PR 分支
 
-### 9.2 合入：`automerge`（生成 + squash + Tag）
+### 9.2 合入后：`sync-registry`（生成 + Tag）
 
-触发：PR 被贴上 label **`automerge`**（目标分支 `main` / `release`）。
+触发：
 
-1. 仅支持同仓 PR
-2. `check_manifests.py`（`release` 时 `--require-stable`）
-3. `generate_registry.py`；若有变更 → 短暂 commit/push 到 PR head：`[generate] regenerate registry`
-4. `gh pr merge --squash`（commit title = PR title），删除 head 分支
-5. 在合入后的 base tip 上运行 `create_plugin_tags.sh`（同 job；`GITHUB_TOKEN` 合入不会再触发 `push` workflow）
-6. 失败时评论说明原因，并移除 `automerge`，修好后可重新贴 label 重试
+- push → `main` / `release`（正常发版）
+- `workflow_dispatch`（手动）：`full` 或 `tags-only`；**必须选择 `main` 或 `release`**（job 有 `if: ref_name == main || release`；选其它分支会 skip。`push.branches` 不限制手动触发）
 
-开发者不必本地跑生成脚本。合入请**只**用 `automerge` label，**不要**用 GitHub UI 的 Merge / Squash 按钮（否则可能缺生成物）。仓库需存在名为 `automerge` 的 label；若启用 Branch protection，需允许 `github-actions[bot]` 完成 merge。
+正常 push 路径：
 
-### 9.3 兜底：`tag-releases`（只打 Tag，不 commit）
+1. `check_manifests.py`（当前分支为 `release` 时 `--require-stable`）
+2. `generate_registry.py`；若有变更 → commit/push：`[CI/CD] Sync plugin registry`（使用 `GITHUB_TOKEN`，**不会**再触发新的 workflow run）
+3. 在 tip 上运行 `create_plugin_tags.sh`（对比 parent 的 `registry.json` 打 `domain/vX.Y.Z`）；**任一步失败则 job 失败**
 
-触发：push → `main` / `release`（例如有人仍用网页合入时）。
+开发者不必本地跑生成脚本。可用网页或 `gh` 正常合入 PR；**以 `sync-registry` 成功为准** 才算渠道索引已更新。同一 ref 使用 concurrency group，避免并行 generate 互相覆盖。
 
-1. `create_plugin_tags.sh`：`print_new_tags.py` 找出 version 变化（含新增）的插件并推送 Tag
-2. **不**修改工作区、**不**新增 commit
-3. 正常路径应由 `automerge` 打 Tag；本 workflow 仅为兜底
+**不要依赖「generate push 再跑一次 workflow」来补救**：默认 `GITHUB_TOKEN` 推送不会创建新的 workflow run。
+
+若 **生成已 push、打 tag 失败**：
+
+1. **不要** Re-run 那次失败的 push job（仍按旧 event SHA checkout，再 push 常会 non-fast-forward）
+2. 在 Actions → **Sync registry** → Run workflow：选 **`main` 或 `release`**，mode = **`tags-only`**
+3. 该模式只在当前分支 tip 上幂等补打缺失的 `domain/vX.Y.Z`（已存在的 tag 会跳过）
+
+若启用 Branch protection 且禁止默认 `GITHUB_TOKEN` 直推，需另行配置允许 Actions 写入的 PAT / GitHub App。
 
 ---
 
@@ -321,7 +327,7 @@ bot：生成 → squash → release → 同 job 打 Tag
 
 ### A. 根目录 CHANGELOG.md（Registry 级，CI 生成）
 
-路径：仓库根目录 `CHANGELOG.md`。automerge 生成时对比更新前的 `registry.json` 与新生成的索引，自动归类：
+路径：仓库根目录 `CHANGELOG.md`。`sync-registry` 生成时对比更新前的 `registry.json` 与新生成的索引，自动归类：
 
 | 对比结果 | 归入 |
 |----------|------|
@@ -420,8 +426,8 @@ plugins/
  └── fxtwitter/
        └── ...
 
-registry.json         # automerge 生成并打进 squash commit（含各插件本版 release_notes）
-CHANGELOG.md          # automerge：对比 registry，记录 Added / Updated / Removed
+registry.json         # sync-registry 在合入后生成并 push（含各插件本版 release_notes）
+CHANGELOG.md          # sync-registry：对比 registry，记录 Added / Updated / Removed
 
 Tags:
   douyin/v0.2.0-beta.1        # 跟 main
@@ -444,6 +450,8 @@ Tags:
 
 **Phase 1 已落地：** 目录迁入 `plugins/`、分插件 `manifest.json` 纳入版本控制、`scripts/generate_registry.py` 生成 `registry.json`。
 
-**Phase 2 已落地：** `validate`（PR 只校验）、`automerge`（label 合入时生成 + squash + Tag）、`tag-releases`（push 兜底打 Tag）；脚本拆为 `registry_lib` / `generate_registry` / `check_manifests` / `print_new_tags` / `create_plugin_tags.sh`。
+**Phase 2 已落地（方案 A）：** `validate`（PR 只校验）、`sync-registry`（合入 `main`/`release` 后生成 registry + CHANGELOG 并打 Tag）；已移除 `automerge` / 独立 `tag-releases`。脚本为 `registry_lib` / `generate_registry` / `check_manifests` / `print_new_tags` / `create_plugin_tags.sh`。
 
-**Phase 3–4 已落地：** Content Hive 只读 `registry.json`、安装拷贝源 manifest、API 返回 `release_notes`；渠道为 `main`（Beta）/ `release`（Stable），默认 `repo_ref=release`；已去掉 `plugins-manifest.json` 双写。`develop` 不再作为分发渠道。
+**Phase 3–4 已落地：** Content Hive 只读 `registry.json`、安装拷贝源 manifest、API 返回 `release_notes`；渠道设计为 `main`（Beta）/ `release`（Stable），默认 `repo_ref=release`；已去掉 `plugins-manifest.json` 双写。`develop` 不再作为分发渠道。
+
+**渠道切仓（另做）：** 将新布局与方案 A CI 推上 `main`、创建 `release`、调整默认分支等不在本变更范围内。

@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "repository": "github.com/content-hive/plugins",
-  "generated_at": "2026-09-16T10:02:55Z",
+  "generated_at": "2026-09-16T10:03:29Z",
   "plugins": [
     {
       "domain": "douyin",

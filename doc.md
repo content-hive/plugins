@@ -35,7 +35,7 @@ repository/
 ├── plugins/
 │   ├── douyin/
 │   │   ├── manifest.json      # 手写，唯一真相
-│   │   ├── CHANGELOG.md
+│   │   ├── CHANGELOG.md       # CI 生成，禁止手改
 │   │   ├── __init__.py
 │   │   └── ...
 │   ├── fxtwitter/
@@ -46,6 +46,12 @@ repository/
 ├── registry.json              # CI 生成，禁止手改
 ├── README.md
 ├── CHANGELOG.md               # Registry 级变更；CI 维护，禁止手改
+├── scripts/
+│   ├── registry_lib.py        # 校验 / 生成 / 打 Tag 的共享逻辑
+│   ├── check_manifests.py
+│   ├── generate_registry.py
+│   ├── print_new_tags.py
+│   └── create_plugin_tags.sh
 └── .github/
     └── workflows/
         ├── validate.yml         # PR → main/release：只校验
@@ -57,11 +63,11 @@ repository/
 | 文件 | 职责 |
 |------|------|
 | `plugins/<domain>/manifest.json` | 插件元数据的唯一手写真相（含本版 `release_notes`） |
-| `registry.json` | 中心索引，由 CI 从各插件 manifest 汇总生成 |
+| `registry.json` | 中心索引，由 CI 从各插件 manifest 汇总生成（复制清单字段并注入 `path`） |
 | `plugins/<domain>/CHANGELOG.md` | 单个插件历史；由 CI 根据 manifest 写入，禁止手改 |
 | 根目录 `CHANGELOG.md` | Registry 整体变更（新增 / 更新 / 移除哪些插件）；由 CI 对比新旧 `registry.json` 写入，禁止手改 |
 
-`path` 字段由 CI 按目录位置自动注入，**不要**在分插件 manifest 里手写。
+`path` 由 CI 按目录位置写成 `plugins/<domain>`，**不要**在分插件 manifest 里手写。若误写了 `path` 或 `enabled`，生成中心清单时会剥掉。
 
 ---
 
@@ -85,12 +91,26 @@ repository/
 
 ### 3.2 字段约定
 
+CI 必填（缺一即校验失败）：
+
 | 字段 | 说明 |
 |------|------|
-| `domain` | 必须与目录名一致 |
+| `domain` | 必须与目录名一致；仅 `[a-z0-9_-]`（主程序安装时同样校验，CI 目前只检查与目录名一致） |
+| `name` | 展示名 |
 | `version` | Semantic Versioning；见第 6 节 |
-| `release_notes` | **仅本版**发布说明；发新版时改写（覆盖），不在此追加历史 |
+| `description` | 插件介绍 |
+| `author` | **必须是 list**，例如 `["content-hive"]` |
+| `requirements` | **必须是 list**（无依赖写 `[]`） |
+| `config_flow` | **必须是 bool** |
+| `release_notes` | 非空字符串；**仅本版**发布说明；发新版时改写（覆盖），不在此追加历史 |
+
+可选 / 禁止手写：
+
+| 字段 | 说明 |
+|------|------|
+| `disclaimer` | 可选。有则原样写入 `registry.json`，供安装前展示风险说明 |
 | `path` | **禁止手写**；由 CI 写入中心清单 |
+| `enabled` | **不要写**；若出现，生成时剥掉（启用状态在主程序本地配置，不进仓库清单） |
 
 `release_notes` 随 `registry.json` 下发，供前端在「有可用更新」时展示目标版本说明。完整历史见 `CHANGELOG.md`，不塞进 manifest。
 
@@ -101,7 +121,9 @@ repository/
 
 ### 3.3 中心清单：`registry.json`
 
-由 CI 生成，示例形态：
+由 CI 生成。顶层 `version` 是**清单 schema 版本**（当前固定 `"1.0.0"`），不是某个插件的版本；`repository` 由脚本写死为 `github.com/content-hive/plugins`；`generated_at` 为 UTC。
+
+每条插件记录 = 该插件 manifest 的清单字段 + 注入的 `path`（`disclaimer` 仅在 manifest 有该字段时出现）：
 
 ```json
 {
@@ -113,14 +135,19 @@ repository/
       "domain": "douyin",
       "name": "抖音",
       "version": "0.1.9",
+      "description": "……",
+      "author": ["content-hive"],
+      "requirements": ["gmssl>=3.2.2"],
+      "config_flow": false,
       "path": "plugins/douyin",
-      "release_notes": "修复 Cookie 过期导致的解析失败\n- 兼容新的签名算法"
+      "release_notes": "修复 Cookie 过期导致的解析失败\n- 兼容新的签名算法",
+      "disclaimer": "……"
     }
   ]
 }
 ```
 
-主程序消费 `registry.json`（发现插件、版本对比、安装、更新说明）。安装时应拷贝插件目录内已有的 `manifest.json`；中心清单做索引，并携带各插件当前 `release_notes`。
+主程序消费 `registry.json`（发现插件、版本对比、安装、更新说明；列表接口还会用到 `description` / `author` / `disclaimer` / `release_notes`）。安装时应拷贝插件目录内已有的 `manifest.json`；仅当源目录缺少合法且 `domain` 匹配的 manifest 时，才回退用中心清单条目生成。
 
 ---
 
@@ -145,7 +172,7 @@ feat/* / fix/*  ──PR──►  main (beta)
 
 规则：
 
-- 日常开发只向 `main` 合入
+- 日常开发（含插件修复 / 新插件）只向 `main` 开 PR
 - `release` 只接受来自 `main` 的发版合并（快进或 release PR）
 - 不要把未在 `main` 验证过的改动直接推进 `release`
 
@@ -171,7 +198,10 @@ docs/*
 
 非插件改动（CI、文档、仓库级脚本）可不带 domain，例如：`docs/update-registry-doc`、`chore/ci-sync-registry`。
 
-流程：`feature branch` → PR → `main`。
+流程：
+
+- 插件开发 / 日常改动：`feature branch` → PR → **`main`**
+- 发 Stable：从已验证的 `main` 开 PR → **`release`**（不要把功能 PR 直接打向 `release`）
 
 ### 5.2 原则：一 PR 尽量只改一个插件
 
@@ -179,8 +209,8 @@ docs/*
 
 推荐：
 
-- PR #101 — `[Camera] Add camera plugin`
-- PR #102 — `[Weather] Update weather plugin to v1.2.0`
+- PR #101 — `[Douyin] Add douyin plugin`
+- PR #102 — `[Xiaohongshu] Update xiaohongshu plugin to v0.1.15`
 
 ### 5.3 PR 标题与检查清单
 
@@ -201,13 +231,12 @@ docs/*
 
 **新插件：** `[<Domain>] Add <domain> plugin`
 
-- [ ] 插件介绍完整
-- [ ] `plugins/<domain>/manifest.json` 已添加且字段合法
+- [ ] `plugins/<domain>/manifest.json` 已添加且字段合法（见 3.2）
+- [ ] `description` 完整；需要风险提示时填写 `disclaimer`
 - [ ] `release_notes`（本版说明）已填写
-- [ ] README 已完善
-- [ ] License 已确认
+- [ ] 第三方代码或额外许可已确认（如有则放 `LICENSE`）
 - [ ] CI 通过（`validate`）
-- [ ] 合入后确认 `sync-registry` 变绿
+- [ ] 合入 `main` 后确认 `sync-registry` 变绿
 
 **升级：** `[<Domain>] Update <domain> plugin to v1.2.0`（`fix` / `feat` 语义写在摘要里即可）
 
@@ -238,10 +267,10 @@ docs/*
 
 示例：
 
-- `main`：`camera 2.0.0-beta.1`、`weather 1.5.0-beta.2`
-- `release`：`camera 1.8.3`、`weather 1.4.5`
+- `main`：`douyin 0.2.0-beta.1`、`xiaohongshu 0.1.15-beta.2`
+- `release`：`douyin 0.1.9`、`xiaohongshu 0.1.14`
 
-CI 按目标分支强制校验上述规则。
+CI 按目标分支强制校验：PR 看 `base_ref`，合入后的 `sync-registry` 看当前分支名；目标 / 当前为 `release` 时加 `--require-stable`。
 
 ---
 
@@ -249,19 +278,17 @@ CI 按目标分支强制校验上述规则。
 
 不要使用裸 `v1.0.0`（多插件会冲突）。
 
-推荐：
+CI 自动打的只有插件版本 Tag：
 
 ```
-# 插件
 douyin/v0.1.9
 douyin/v0.2.0-beta.1
 fxtwitter/v0.1.8
-
-# 仓库 / Registry 里程碑（可选）
-registry/2026.08
 ```
 
-Tag 在合入对应渠道分支后打（Beta Tag 跟 `main`，Stable Tag 跟 `release`）。
+合入对应渠道分支并完成 `sync-registry` 后打（Beta Tag 跟 `main`，Stable Tag 跟 `release`）。对比的是当前 `registry.json` 与 **`HEAD~1:registry.json`** 的 `domain → version`；某插件 version 变了（含新增插件）才打 `domain/v<version>`。若 parent 没有 `registry.json`，则**整批跳过**（避免历史空洞时误给所有插件打 Tag）。
+
+`registry/YYYY.MM` 这类仓库里程碑 **不是 CI 流程**：需要时由维护者手工打 Tag，也不写入根目录 CHANGELOG 标题。
 
 ---
 
@@ -288,7 +315,7 @@ Tag 在合入对应渠道分支后打（Beta Tag 跟 `main`，Stable Tag 跟 `re
 ```
 main 上测试完成
         ↓
-PR → release（版本须为正式版 x.y.z）
+从 main 开 PR → release（版本须为正式版 x.y.z）
         ↓
 CI：校验 manifests（--require-stable）
         ↓
@@ -309,8 +336,8 @@ push 触发 sync-registry：生成 → bot commit → Tag
 |------|------|
 | `scripts/check_manifests.py` | 校验 manifest（`--require-stable` 拒预发布） |
 | `scripts/generate_registry.py` | 生成 `registry.json`、两处 CHANGELOG |
-| `scripts/print_new_tags.py` | 对比 `HEAD~1` 输出待打 Tag |
-| `scripts/create_plugin_tags.sh` | 创建并推送 `print_new_tags.py` 列出的 Tag |
+| `scripts/print_new_tags.py` | 对比 `HEAD~1:registry.json` 输出待打 Tag |
+| `scripts/create_plugin_tags.sh` | 创建并推送 `print_new_tags.py` 列出的 Tag（已存在则跳过） |
 
 ### 9.1 PR：`validate`（只校验）
 
@@ -331,7 +358,7 @@ push 触发 sync-registry：生成 → bot commit → Tag
 
 1. `check_manifests.py`（当前分支为 `release` 时 `--require-stable`）
 2. `generate_registry.py`；若有变更 → commit/push：`[CI/CD] Sync plugin registry`（使用 `GITHUB_TOKEN`，**不会**再触发新的 workflow run）
-3. 在 tip 上运行 `create_plugin_tags.sh`（对比 parent 的 `registry.json` 打 `domain/vX.Y.Z`）；**任一步失败则 job 失败**
+3. 在 tip 上运行 `create_plugin_tags.sh`（对比 `HEAD~1` 的 `registry.json` 打 `domain/vX.Y.Z`）；**任一步失败则 job 失败**
 
 开发者不必本地跑生成脚本。可用网页或 `gh` 正常合入 PR；**以 `sync-registry` 成功为准** 才算渠道索引已更新。同一 ref 使用 concurrency group，避免并行 generate 互相覆盖。
 
@@ -340,8 +367,10 @@ push 触发 sync-registry：生成 → bot commit → Tag
 若 **生成已 push、打 tag 失败**：
 
 1. **不要** Re-run 那次失败的 push job（仍按旧 event SHA checkout，再 push 常会 non-fast-forward）
-2. 在 Actions → **Sync registry** → Run workflow：选 **`main` 或 `release`**，mode = **`tags-only`**
-3. 该模式只在当前分支 tip 上幂等补打缺失的 `domain/vX.Y.Z`（已存在的 tag 会跳过）
+2. **在 tip 仍停在那次 generate commit 时**，于 Actions → **Sync registry** → Run workflow：选 **`main` 或 `release`**，mode = **`tags-only`**
+3. 该模式**不再 generate**，只把当前 tip 的 `registry.json` 与 **`HEAD~1:registry.json`** 的版本差打成 `domain/vX.Y.Z`；本地或远端已存在的 tag 会跳过
+
+`tags-only` **不能**补打更早 commit 漏掉的 tag。若 generate 成功、tag 失败之后又合入了新的 PR，需要维护者按当时漏掉的 `domain/vX.Y.Z` 手工补打，或把 tip 重置到那次 generate commit 再跑 `tags-only`。
 
 若启用 Branch protection 且禁止默认 `GITHUB_TOKEN` 直推，需另行配置允许 Actions 写入的 PAT / GitHub App。
 
@@ -362,7 +391,7 @@ push 触发 sync-registry：生成 → bot commit → Tag
 | 旧索引有、新索引无该 `domain` | **移除（Removed）** |
 | `domain` 与 `version` 均未变 | 不写入本轮条目 |
 
-若本轮没有任何新增 / 更新 / 移除，则不追加新的 Registry 条目。
+若本轮没有任何新增 / 更新 / 移除，则不追加新的 Registry 条目。日期标题使用 **UTC** 的 `YYYY-MM-DD`。
 
 示例格式：
 
@@ -372,23 +401,23 @@ push 触发 sync-registry：生成 → bot commit → Tag
 ## 2026-07-31
 
 ### Added
-- camera 0.1.0
+- douyin 0.1.9
 
 ### Updated
-- weather 1.4.5 → 1.5.0
-- player 2.0.0-beta.1 → 2.0.0-beta.2
+- xiaohongshu 0.1.14 → 0.1.15
+- twitter 0.1.1 → 0.1.2-beta.1
 
 ### Removed
-- old_sensor
+- old_parser
 ```
 
 写入规则：
 
 | 情况 | 行为 |
 |------|------|
-| 本轮有变更 | 在文件顶部（标题下）**追加**一个以日期（或可选 `registry/YYYY.MM` 里程碑）为标题的块 |
-| 同一天内多次 merge 且需合并展示 | 可合并进当天已有块，或始终追加带时间的独立块（实施时二选一，保持一致即可） |
-| Updated 条目 | 建议写出旧版 → 新版，便于扫一眼 |
+| 本轮有变更，且当天（UTC）尚无块 | 在文件顶部（`# Changelog` 下）插入 `## YYYY-MM-DD` 块 |
+| 本轮有变更，且当天已有块 | **合并进当天已有块**（同类 bullet 去重追加）；不另开带时刻的独立块 |
+| Updated 条目 | 写成 `domain 旧版 → 新版` |
 
 人类不直接编辑此文件。
 
@@ -422,9 +451,9 @@ push 触发 sync-registry：生成 → bot commit → Tag
 
 | 情况 | 行为 |
 |------|------|
-| `CHANGELOG.md` 中**尚无**该 `version` 标题 | **追加**新的 `## <version>` 块（通常插在最新版本之上） |
+| `CHANGELOG.md` 中**尚无**该 `version` 标题 | **追加**新的 `## <version>` 块（插在标题下、已有版本之上） |
 | 已存在相同 `version` | **覆盖**该版本块内容（同一版本上反复修正 `release_notes` 时） |
-| `version` 未变化 | 若仅其它文件变更、manifest 的 version 未变，则不新增条目；若同 version 下 `release_notes` 文案变了，则按上行覆盖该块 |
+| `version` 未变化 | 不新增条目；若同 version 下 `release_notes` 文案变了，则按上行覆盖该块 |
 
 人类不直接编辑此文件；完整历史以 CI 维护的插件 `CHANGELOG.md` 为准，机器/前端更新提示以 manifest / `registry.json` 的本版 `release_notes` 为准。
 
@@ -452,20 +481,21 @@ plugins/
  └── fxtwitter/
        └── ...
 
-registry.json         # sync-registry 在合入后生成并 push（含各插件本版 release_notes）
+registry.json         # sync-registry 在合入后生成并 push（清单字段 + path）
 CHANGELOG.md          # sync-registry：对比 registry，记录 Added / Updated / Removed
 
-Tags:
+Tags（CI）:
   douyin/v0.2.0-beta.1        # 跟 main
   douyin/v0.2.0               # 跟 release
-  registry/2026.08            # 可选里程碑
 ```
 
 ---
 
 ## 12. 与主程序的约定
 
-- 中心索引文件名为 `registry.json`
+- 中心索引文件名为 `registry.json`；schema 版本在顶层 `version`，当前为 `1.0.0`
 - 用户通过 `plugins.repo_ref` 选择渠道：`release` = Stable（默认），`main` = Beta；无需协议层 `channel` 字段
 - 检查更新时，远程条目中的 `release_notes` 一并返回给前端，用于展示目标版本说明
+- 可用插件列表还会用到远程条目中的 `description`、`author`、`disclaimer`
+- `domain` 须匹配 `[a-z0-9_-]`，否则主程序拒绝安装
 - 后续若增加 `min_core_version` / `api_version` 等兼容字段，写在分插件 `manifest.json` 中，由 CI 一并汇总

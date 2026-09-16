@@ -179,27 +179,43 @@ docs/*
 
 推荐：
 
-- PR #101 — 新增 camera 插件
-- PR #102 — 升级 weather 插件
+- PR #101 — `[Camera] Add camera plugin`
+- PR #102 — `[Weather] Update weather plugin to v1.2.0`
 
 ### 5.3 PR 标题与检查清单
 
-**新插件：** `feat: add xxx plugin`
+标题须能一眼看出改的是哪个插件（或仓库级主题）。**改插件时标题带 domain / 插件名**，与分支命名同理。
+
+推荐格式（与历史 PR 一致）：
+
+```
+[<Domain>] <摘要>
+[<Domain>] Update <domain> plugin to vX.Y.Z
+[CI/CD] …
+[Docs] …
+```
+
+例如：`[Douyin] Fix cookie refresh`、`[Xiaohongshu] Accept xhslink.cn short links`、`[CI/CD] Guard sync-registry to channel branches`。
+
+也可用 Conventional Commits，但仍应写出插件名：`feat(douyin): …` / `fix(xiaohongshu): …`。
+
+**新插件：** `[<Domain>] Add <domain> plugin`
 
 - [ ] 插件介绍完整
 - [ ] `plugins/<domain>/manifest.json` 已添加且字段合法
 - [ ] `release_notes`（本版说明）已填写
 - [ ] README 已完善
 - [ ] License 已确认
-- [ ] CI 通过
+- [ ] CI 通过（`validate`）
+- [ ] 合入后确认 `sync-registry` 变绿
 
-**升级：** `fix: update xxx plugin to v1.2.0` / `feat: update xxx plugin to v1.2.0`
+**升级：** `[<Domain>] Update <domain> plugin to v1.2.0`（`fix` / `feat` 语义写在摘要里即可）
 
 - [ ] 修改内容说明
 - [ ] 新旧版本号
 - [ ] Breaking Changes（如有）
 - [ ] `manifest.json` 中 `version` 与本版 `release_notes` 已更新
-- [ ] CI 通过（校验）；合入后确认 `sync-registry` 变绿（生成物由 push 后 CI 写入，无需手改）
+- [ ] CI 通过（`validate`）；合入后确认 `sync-registry` 变绿（生成物由 push 后 CI 写入，无需手改）
 
 ---
 

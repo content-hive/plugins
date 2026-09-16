@@ -29,6 +29,16 @@ jobs:
   sync-registry:
     runs-on: ubuntu-latest
     steps:
+      - name: Require channel branch
+        run: |
+          case "${{ github.ref_name }}" in
+            main|release) ;;
+            *)
+              echo "::error::sync-registry only runs on main or release (got '${{ github.ref_name }}'). push.branches does not limit workflow_dispatch."
+              exit 1
+              ;;
+          esac
+
       - name: Checkout
         uses: actions/checkout@v4
         with:

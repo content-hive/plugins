@@ -299,7 +299,7 @@ push 触发 sync-registry：生成 → bot commit → Tag
 触发：
 
 - push → `main` / `release`（正常发版）
-- `workflow_dispatch`（手动）：`full` 或 `tags-only`
+- `workflow_dispatch`（手动）：`full` 或 `tags-only`；**必须选择 `main` 或 `release` 分支**（`push.branches` 过滤不作用于手动触发，job 内会拒绝其它分支）
 
 正常 push 路径：
 
@@ -314,7 +314,7 @@ push 触发 sync-registry：生成 → bot commit → Tag
 若 **生成已 push、打 tag 失败**：
 
 1. **不要** Re-run 那次失败的 push job（仍按旧 event SHA checkout，再 push 常会 non-fast-forward）
-2. 在 Actions → **Sync registry** → Run workflow：选对应分支，mode = **`tags-only`**
+2. 在 Actions → **Sync registry** → Run workflow：选 **`main` 或 `release`**，mode = **`tags-only`**
 3. 该模式只在当前分支 tip 上幂等补打缺失的 `domain/vX.Y.Z`（已存在的 tag 会跳过）
 
 若启用 Branch protection 且禁止默认 `GITHUB_TOKEN` 直推，需另行配置允许 Actions 写入的 PAT / GitHub App。

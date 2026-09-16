@@ -67,7 +67,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No generated file changes"
           else
-            git commit -m "[CI/CD] Regenerate registry"
+            git commit -m "[CI/CD] Sync plugin registry"
             git push
           fi
 

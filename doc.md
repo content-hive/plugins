@@ -48,7 +48,8 @@ repository/
 ├── CHANGELOG.md               # Registry 级变更；CI 维护，禁止手改
 └── .github/
     └── workflows/
-        └── ...
+        ├── validate.yml         # PR → main/release：只校验
+        └── sync-registry.yml    # push / 手动：生成索引 + Tag
 ```
 
 说明：
@@ -125,12 +126,14 @@ repository/
 
 ## 4. 长期分支
 
-不使用 Git Flow。仅两个长期分支：
+不使用 Git Flow。分发渠道只有两个长期分支；**仓库默认分支为 `main`**。
 
 | 分支 | 渠道 | 用途 |
 |------|------|------|
-| `main` | Beta | 最新代码、新插件、预发布版本 |
-| `release` | Stable | 面向普通用户的稳定版本 |
+| `main` | Beta | 最新代码、新插件、预发布版本（默认分支） |
+| `release` | Stable | 面向普通用户的稳定版本（Content Hive 默认 `repo_ref`） |
+
+`develop` **不是**分发渠道，也不再作为默认分支；若仍保留，仅作历史/过渡，不要向用户配置 `repo_ref=develop`。
 
 ```
 feat/* / fix/*  ──PR──►  main (beta)
@@ -248,7 +251,7 @@ Tag 在合入对应渠道分支后打（Beta Tag 跟 `main`，Stable Tag 跟 `re
                               ↓
                     CI：校验 manifests（validate）
                               ↓
-              人工 squash / merge 合入 main
+                    人工合入 main（merge commit）
                               ↓
          push 触发 sync-registry：生成 → bot commit → Tag
                               ↓
@@ -266,7 +269,7 @@ PR → release（版本须为正式版 x.y.z）
         ↓
 CI：校验 manifests（--require-stable）
         ↓
-人工 squash / merge 合入 release
+人工合入 release（merge commit）
         ↓
 push 触发 sync-registry：生成 → bot commit → Tag
         ↓
@@ -450,8 +453,11 @@ Tags:
 
 **Phase 1 已落地：** 目录迁入 `plugins/`、分插件 `manifest.json` 纳入版本控制、`scripts/generate_registry.py` 生成 `registry.json`。
 
-**Phase 2 已落地（方案 A）：** `validate`（PR 只校验）、`sync-registry`（合入 `main`/`release` 后生成 registry + CHANGELOG 并打 Tag）；已移除 `automerge` / 独立 `tag-releases`。脚本为 `registry_lib` / `generate_registry` / `check_manifests` / `print_new_tags` / `create_plugin_tags.sh`。
+**Phase 2 已落地（方案 A）：** `validate`（PR 只校验）、`sync-registry`（合入 `main`/`release` 后生成 registry + CHANGELOG 并打 Tag；支持 `workflow_dispatch` 的 `full` / `tags-only`）；已移除 `automerge` / 独立 `tag-releases`。脚本为 `registry_lib` / `generate_registry` / `check_manifests` / `print_new_tags` / `create_plugin_tags.sh`。
 
-**Phase 3–4 已落地：** Content Hive 只读 `registry.json`、安装拷贝源 manifest、API 返回 `release_notes`；渠道设计为 `main`（Beta）/ `release`（Stable），默认 `repo_ref=release`；已去掉 `plugins-manifest.json` 双写。`develop` 不再作为分发渠道。
+**Phase 3–4 已落地：** Content Hive 只读 `registry.json`、安装拷贝源 manifest、API 返回 `release_notes`；渠道为 `main`（Beta）/ `release`（Stable），默认 `repo_ref=release`；已去掉 `plugins-manifest.json` 双写。
 
-**渠道切仓（另做）：** 将新布局与方案 A CI 推上 `main`、创建 `release`、调整默认分支等不在本变更范围内。
+**渠道切仓已完成：** 新布局与方案 A CI 已在 `main`；已创建 `release`；仓库默认分支为 `main`。`develop` 不分发。远程索引示例：
+
+- Beta：`https://raw.githubusercontent.com/content-hive/plugins/main/registry.json`
+- Stable：`https://raw.githubusercontent.com/content-hive/plugins/release/registry.json`

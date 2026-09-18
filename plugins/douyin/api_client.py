@@ -256,6 +256,19 @@ class DouyinAPIClient:
         }
         return headers
 
+    def _gateway_headers(self) -> dict[str, str]:
+        """Return Argus compatibility headers when the cookie jar has a UIFID."""
+        uifid = next(
+            (value.strip() for key, value in self.cookies.items() if key.lower() == "uifid" and value.strip()),
+            "",
+        )
+        if not uifid:
+            if self.logger:
+                self.logger.debug("Douyin cookie is missing UIFID; Argus gateway headers omitted")
+            return {}
+        # x-tt-argus is a placeholder; the gateway currently checks presence, not the value.
+        return {"uifid": uifid, "x-tt-argus": "1"}
+
     def _build_signed_path(self, path: str, params: dict[str, Any]) -> tuple[str, str]:
         """Build a signed URL, preferring ABogus over XBogus when available."""
         query = urlencode(params)
@@ -298,12 +311,16 @@ class DouyinAPIClient:
             try:
                 async with self._session.get(
                     signed_url,
-                    headers={**self._headers, "User-Agent": ua},
+                    headers={**self._headers, "User-Agent": ua, **self._gateway_headers()},
                 ) as response:
                     if response.status == 200:
                         data = await response.json(content_type=None)
                         self._sync_session_cookies()
                         return data if isinstance(data, dict) else {}
+                    body = await response.text()
+                    if self.logger:
+                        snippet = body.replace("\n", " ")[:200]
+                        self.logger.warning(f"Douyin API {path} HTTP {response.status}: {snippet}")
                     # 4xx (except 429) are not retryable
                     if response.status < 500 and response.status != 429:
                         return {}
@@ -344,6 +361,10 @@ class DouyinAPIClient:
             # aweme_detail is null with no filter reason — no point retrying other aids
             break
 
+        if self.logger:
+            self.logger.warning(
+                f"Failed to fetch aweme detail for {aweme_id}: no aweme_detail from aids {self._DETAIL_AIDS}"
+            )
         return None
 
     async def resolve_short_url(self, url: str) -> str:

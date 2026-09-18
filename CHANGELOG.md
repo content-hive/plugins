@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-09-18
+
+### Updated
+- douyin 0.1.9 → 0.1.10-beta.1
+
 ## 2026-08-04
 
 ### Added

@@ -313,16 +313,15 @@ class DouyinAPIClient:
                     signed_url,
                     headers={**self._headers, "User-Agent": ua, **self._gateway_headers()},
                 ) as response:
-                    if response.status == 200:
+                    status = response.status
+                    if status == 200:
                         data = await response.json(content_type=None)
                         self._sync_session_cookies()
                         return data if isinstance(data, dict) else {}
-                    body = await response.text()
                     if self.logger:
-                        snippet = body.replace("\n", " ")[:200]
-                        self.logger.warning(f"Douyin API {path} HTTP {response.status}: {snippet}")
+                        self.logger.warning(f"Douyin API {path} HTTP {status}")
                     # 4xx (except 429) are not retryable
-                    if response.status < 500 and response.status != 429:
+                    if status < 500 and status != 429:
                         return {}
             except Exception:
                 pass
@@ -334,7 +333,9 @@ class DouyinAPIClient:
 
     async def get_aweme_detail(self, aweme_id: str) -> dict[str, Any] | None:
         """Fetch aweme detail. Tries aid=6383 first (gallery/note), then aid=1128 (video)."""
+        attempted: list[str] = []
         for aid in self._DETAIL_AIDS:
+            attempted.append(aid)
             params = await self._default_params()
             params.update(
                 {
@@ -363,7 +364,7 @@ class DouyinAPIClient:
 
         if self.logger:
             self.logger.warning(
-                f"Failed to fetch aweme detail for {aweme_id}: no aweme_detail from aids {self._DETAIL_AIDS}"
+                f"Failed to fetch aweme detail for {aweme_id}: no aweme_detail from aids {tuple(attempted)}"
             )
         return None
 

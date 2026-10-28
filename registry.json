@@ -1,12 +1,12 @@
 {
   "version": "1.0.0",
   "repository": "github.com/content-hive/plugins",
-  "generated_at": "2026-09-18T03:44:14Z",
+  "generated_at": "2026-10-28T11:47:02Z",
   "plugins": [
     {
       "domain": "douyin",
       "name": "抖音",
-      "version": "0.1.10-beta.1",
+      "version": "0.1.10",
       "description": "一个用于Content Hive的抖音内容解析插件。通过解析抖音链接，提取视频内容、作者信息等数据。",
       "author": [
         "content-hive"

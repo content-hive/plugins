@@ -27,12 +27,19 @@ MANIFEST_PATH = "plugin/manifest.json"
 REPO_META_PATH = "contenthive.json"
 
 
-class GitHubError(Exception):
-    """Raised when a GitHub API request fails."""
+RELEASES_PER_PAGE = 100
+
+
+class RemoteDataError(Exception):
+    """Raised when data fetched from a plugin repository is missing or malformed."""
+
+
+class GitHubError(RemoteDataError):
+    """Raised when a GitHub API request fails. ``status`` is 0 for network errors."""
 
     def __init__(self, status: int, message: str):
         self.status = status
-        super().__init__(f"GitHub API {status}: {message}")
+        super().__init__(f"GitHub API {status}: {message}" if status else f"GitHub API request failed: {message}")
 
 
 def api_get(path: str, params: dict[str, str] | None = None) -> Any:
@@ -53,23 +60,60 @@ def api_get(path: str, params: dict[str, str] | None = None) -> Any:
             return json.load(response)
     except urllib.error.HTTPError as e:
         raise GitHubError(e.code, f"{path}: {e.reason}") from e
+    except (urllib.error.URLError, TimeoutError) as e:
+        raise GitHubError(0, f"{path}: {e}") from e
+    except ValueError as e:
+        raise GitHubError(0, f"{path}: invalid JSON response ({e})") from e
 
 
 def get_json_file(repository: str, path: str, ref: str) -> dict[str, Any] | None:
-    """Return a JSON file from a repository at ``ref``, or None if it does not exist."""
+    """Return a JSON object file from a repository at ``ref``, or None if it does not exist."""
     try:
         data = api_get(f"/repos/{repository}/contents/{path}", {"ref": ref})
     except GitHubError as e:
         if e.status == 404:
             return None
         raise
-    content = base64.b64decode(data["content"]).decode("utf-8")
-    return json.loads(content)
+    if not isinstance(data, dict) or not isinstance(data.get("content"), str):
+        raise RemoteDataError(f"{path} at {ref} is not a file")
+    try:
+        content = json.loads(base64.b64decode(data["content"]).decode("utf-8"))
+    except ValueError as e:
+        raise RemoteDataError(f"{path} at {ref} is not valid JSON ({e})") from e
+    if not isinstance(content, dict):
+        raise RemoteDataError(f"{path} at {ref} must be a JSON object")
+    return content
+
+
+def list_releases(repository: str) -> list[dict[str, Any]]:
+    """Return all releases of a repository, following pagination."""
+    releases: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        batch = api_get(f"/repos/{repository}/releases", {"per_page": str(RELEASES_PER_PAGE), "page": str(page)})
+        if not isinstance(batch, list) or not all(
+            isinstance(r, dict) and isinstance(r.get("tag_name"), str) for r in batch
+        ):
+            raise RemoteDataError("unexpected releases response")
+        releases += batch
+        if len(batch) < RELEASES_PER_PAGE:
+            return releases
+        page += 1
 
 
 def load_json(path: Path) -> Any:
     with path.open(encoding="utf-8") as f:
         return json.load(f)
+
+
+def _is_version(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        Version(value)
+    except InvalidVersion:
+        return False
+    return True
 
 
 def parse_tag_version(tag: str) -> Version | None:
@@ -137,32 +181,54 @@ def _check_release_files(
 
     before = len(errors)
     for key in ("domain", "name", "version"):
-        if not manifest.get(key):
-            errors.append(f"{tag}: {MANIFEST_PATH} missing '{key}'")
-    domain = manifest.get("domain")
-    if domain and not DOMAIN_PATTERN.match(domain):
+        if not isinstance(manifest.get(key), str) or not manifest[key]:
+            errors.append(f"{tag}: {MANIFEST_PATH} missing '{key}' (non-empty string)")
+    requirements = manifest.get("requirements", [])
+    if not isinstance(requirements, list) or not all(isinstance(r, str) for r in requirements):
+        errors.append(f"{tag}: {MANIFEST_PATH} 'requirements' must be a list of strings")
+    if len(errors) > before:
+        return None
+
+    domain = manifest["domain"]
+    if not DOMAIN_PATTERN.match(domain):
         errors.append(f"{tag}: invalid domain '{domain}' (allowed: a-z, 0-9, -, _)")
-    if manifest.get("version") and tag != f"v{manifest['version']}":
+    if tag != f"v{manifest['version']}":
         errors.append(f"{tag}: tag does not match manifest version '{manifest['version']}'")
     if repo_meta.get("domain") != domain:
         errors.append(f"{tag}: {REPO_META_PATH} domain '{repo_meta.get('domain')}' does not match manifest")
-    if not repo_meta.get("name"):
+    if not isinstance(repo_meta.get("name"), str) or not repo_meta["name"]:
         errors.append(f"{tag}: {REPO_META_PATH} missing 'name'")
+    if not _is_version(repo_meta.get("contenthive")):
+        errors.append(f"{tag}: {REPO_META_PATH} 'contenthive' must be a valid minimum Content Hive version")
     if len(errors) > before:
         return None
     return manifest, repo_meta
 
 
 def inspect_repository(repository: str) -> InspectionResult:
-    """Validate a plugin repository and build its catalog entry."""
-    result = InspectionResult(repository)
-    errors = result.errors
+    """Validate a plugin repository and build its catalog entry.
 
+    Any remote failure is recorded in ``errors`` so callers can skip this repository and continue.
+    """
+    result = InspectionResult(repository)
+    try:
+        _inspect(repository, result)
+    except RemoteDataError as e:
+        result.errors.append(str(e))
+    if result.errors:
+        result.entry = None
+    return result
+
+
+def _inspect(repository: str, result: InspectionResult) -> None:
+    errors = result.errors
     try:
         repo = api_get(f"/repos/{repository}")
     except GitHubError as e:
         errors.append(f"repository not reachable ({e})")
-        return result
+        return
+    if not isinstance(repo, dict):
+        raise RemoteDataError("unexpected repository response")
     if repo.get("private"):
         errors.append("repository is private")
     if repo.get("archived"):
@@ -171,11 +237,10 @@ def inspect_repository(repository: str) -> InspectionResult:
     if not license_id or license_id == "NOASSERTION":
         errors.append("no license detected by GitHub")
 
-    releases = api_get(f"/repos/{repository}/releases", {"per_page": "100"})
-    stable, beta = select_releases(releases)
+    stable, beta = select_releases(list_releases(repository))
     if stable is None and beta is None:
         errors.append("no published release with a 'v<version>' tag")
-        return result
+        return
 
     checked = {}
     for release in (stable, beta):
@@ -189,7 +254,7 @@ def inspect_repository(repository: str) -> InspectionResult:
             errors.append(f"domain changed between {stable['tag_name']} and {beta['tag_name']}")
 
     if errors:
-        return result
+        return
 
     primary = stable or beta
     manifest, repo_meta = checked[primary["tag_name"]]
@@ -205,7 +270,6 @@ def inspect_repository(repository: str) -> InspectionResult:
         "stable": _release_info(stable) if stable else None,
         "beta": _release_info(beta) if beta else None,
     }
-    return result
 
 
 def check_repositories_list(repositories: Any) -> list[str]:

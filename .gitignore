@@ -215,8 +215,5 @@ __marimo__/
 # Temporary files
 .temp/
 
-# Runtime data for plugins
-plugins.yaml
-
-# Per-plugin manifests under plugins/<domain>/ are tracked source of truth.
-# Do not ignore plugins/**/manifest.json.
+# Generated catalog output
+dist/

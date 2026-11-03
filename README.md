@@ -1,71 +1,73 @@
-# Content Hive Plugins
+# Content Hive Plugin Catalog
 
-Plugin registry for [Content Hive](https://github.com/content-hive/content-hive): platform parsers distributed as independent plugins.
+The list of plugin repositories available to [Content Hive](https://github.com/content-hive/content-hive). Plugin code lives in each plugin's own repository; this repository only lists them and publishes the generated catalog.
 
-## Channels
+## Catalog
 
-| Channel | Branch (`repo_ref`) | Audience |
-|---------|---------------------|----------|
-| Stable (default) | `release` | Normal users |
-| Beta | `main` | Testers / early adopters |
-
-`develop` is not a distribution channel.
-
-## Layout
+Content Hive reads a single generated file:
 
 ```
-repository/
-├── plugins/
-│   ├── <domain>/
-│   │   ├── manifest.json   # hand-written source of truth
-│   │   ├── CHANGELOG.md    # generated — do not edit
-│   │   └── ...
-│   └── ...
-├── registry.json           # generated index
-├── CHANGELOG.md            # generated registry-level changelog
-├── scripts/
-│   ├── registry_lib.py
-│   ├── generate_registry.py
-│   ├── check_manifests.py
-│   ├── print_new_tags.py
-│   └── create_plugin_tags.sh
-├── .github/workflows/
-│   ├── validate.yml       # PR → main/release (manifests only)
-│   └── sync-registry.yml  # push → main/release (generate + tags)
-└── doc.md
+https://content-hive.github.io/plugins/catalog.json
 ```
 
-## Available plugins
+It is regenerated every 4 hours, on every push to `main`, and on manual runs of the `Generate catalog` workflow. Versions and release notes come from each plugin repository's GitHub Releases.
 
-| Domain | Description |
-|--------|-------------|
-| `fxtwitter` | Twitter/X via the fxtwitter API |
-| `twitter` | Twitter/X via GraphQL API |
-| `xiaohongshu` | Xiaohongshu notes via page scrape |
-| `douyin` | Douyin content parsing |
-| `jike` | Jike posts (text, Live Photo, video) |
-| `instagram` | Instagram posts/reels (session cookie) |
-| `threads` | Threads posts via mobile page scrape |
+```json
+{
+  "schema": 1,
+  "generated_at": "2026-11-03T10:00:00Z",
+  "plugins": [
+    {
+      "repository": "content-hive/plugin-douyin",
+      "domain": "douyin",
+      "name": "抖音",
+      "description": "...",
+      "license": "MIT",
+      "min_core_version": "0.1.0",
+      "requirements": ["gmssl>=3.2.2"],
+      "disclaimer": "...",
+      "stable": {"version": "0.1.10", "tag": "v0.1.10", "release_notes": "...", "published_at": "..."},
+      "beta": null
+    }
+  ],
+  "removed": []
+}
+```
 
-## Editing a plugin
+| Field | Source |
+|-------|--------|
+| `stable` | Latest published Release that is not a pre-release |
+| `beta` | Latest pre-release newer than `stable`, otherwise `null` |
+| `domain`, `name`, `description`, `requirements`, `disclaimer` | `plugin/manifest.json` at the `stable` tag (the `beta` tag if there is no stable release) |
+| `min_core_version` | `contenthive` in `contenthive.json` at the same tag |
+| `license` | License detected by GitHub |
+| `removed` | `removed.json` in this repository |
 
-1. Change code and/or `plugins/<domain>/manifest.json`
-2. When releasing: bump `version` and rewrite `release_notes` (current version only)
-3. Open a PR targeting `main` (beta). Promote to Stable with a separate PR from `main` → `release`; do not send feature PRs to `release`.
-4. Merge normally (merge commit via GitHub UI or `gh`)
-5. Wait for the `sync-registry` workflow on the base branch to turn green — that job regenerates `registry.json` / changelogs and creates tags like `douyin/v0.1.9`. If tagging fails after the generate commit is already pushed, do **not** re-run that failed job; while the branch tip is still that generate commit, use Actions → Sync registry → Run workflow with mode `tags-only`. That mode only tags version diffs versus `HEAD~1`. If the tip has already moved on, do **not** reset / force-push `main` or `release` — manually create each missing `domain/vX.Y.Z` tag pointing at that generate commit (see [doc.md](doc.md) §9.2).
+## Files
 
-You do **not** need to run the generator locally. PR CI only validates manifests. After merge, `sync-registry` writes generated files in a follow-up `[CI/CD] Sync plugin registry` commit when needed.
+| File | Purpose |
+|------|---------|
+| `repositories.json` | Listed plugin repositories, as `owner/repo`, sorted alphabetically |
+| `removed.json` | Repositories taken out of the catalog: `{"repository": "owner/repo", "reason": "...", "severity": "removed"}`. `severity` is `removed` (no longer offered) or `critical` (harmful) |
+| `scripts/generate_catalog.py` | Builds `dist/catalog.json` |
+| `scripts/validate_repositories.py` | Checks `repositories.json`, `removed.json`, and every listed repository |
 
-Optional local preview:
+## Adding a plugin
+
+A plugin repository must:
+
+- Be public on GitHub and have a license GitHub can detect
+- Keep the plugin in `plugin/`, with `plugin/manifest.json` containing `domain`, `name`, and `version`
+- Have `contenthive.json` in the root with `name`, `domain` (matching the manifest), and `contenthive` (minimum Content Hive version)
+- Publish at least one GitHub Release whose tag is `v` + the manifest `version` (for example `v0.1.10`); mark beta versions as pre-releases
+- Use a `domain` no other listed plugin uses
+
+Then open a pull request that adds `owner/repo` to `repositories.json` in alphabetical order. The `Validate` workflow runs the same checks; the pull request is reviewed once it passes.
+
+## Running locally
 
 ```bash
-python3 scripts/check_manifests.py
-python3 scripts/generate_registry.py
+pip install packaging
+GITHUB_TOKEN="$(gh auth token)" python3 scripts/validate_repositories.py
+GITHUB_TOKEN="$(gh auth token)" python3 scripts/generate_catalog.py
 ```
-
-Do **not** hand-edit `registry.json`, root `CHANGELOG.md`, or `plugins/*/CHANGELOG.md`.
-
-## Design
-
-See [doc.md](doc.md) for branching, SemVer, and CI details.

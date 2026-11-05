@@ -22,6 +22,7 @@ It is regenerated every 4 hours, on every push to `main`, and on manual runs of 
       "domain": "douyin",
       "name": "抖音",
       "description": "...",
+      "author": ["content-hive"],
       "license": "MIT",
       "min_core_version": "0.1.0",
       "requirements": ["gmssl>=3.2.2"],
@@ -38,7 +39,7 @@ It is regenerated every 4 hours, on every push to `main`, and on manual runs of 
 |-------|--------|
 | `stable` | Latest published Release that is not a pre-release |
 | `beta` | Latest pre-release newer than `stable`, otherwise `null` |
-| `domain`, `name`, `description`, `requirements`, `disclaimer` | `plugin/manifest.json` at the `stable` tag (the `beta` tag if there is no stable release) |
+| `domain`, `name`, `description`, `author`, `requirements`, `disclaimer` | `plugin/manifest.json` at the `stable` tag (the `beta` tag if there is no stable release) |
 | `min_core_version` | `contenthive` in `contenthive.json` at the same tag |
 | `license` | License detected by GitHub |
 | `removed` | `removed.json` in this repository |

@@ -183,9 +183,6 @@ def _check_release_files(
     for key in ("domain", "name", "version"):
         if not isinstance(manifest.get(key), str) or not manifest[key]:
             errors.append(f"{tag}: {MANIFEST_PATH} missing '{key}' (non-empty string)")
-    requirements = manifest.get("requirements", [])
-    if not isinstance(requirements, list) or not all(isinstance(r, str) for r in requirements):
-        errors.append(f"{tag}: {MANIFEST_PATH} 'requirements' must be a list of strings")
     if len(errors) > before:
         return None
 
@@ -263,9 +260,10 @@ def _inspect(repository: str, result: InspectionResult) -> None:
         "domain": manifest["domain"],
         "name": manifest["name"],
         "description": manifest.get("description"),
+        "author": manifest.get("author"),
         "license": license_id,
         "min_core_version": repo_meta.get("contenthive"),
-        "requirements": manifest.get("requirements", []),
+        "requirements": manifest.get("requirements"),
         "disclaimer": manifest.get("disclaimer"),
         "stable": _release_info(stable) if stable else None,
         "beta": _release_info(beta) if beta else None,
